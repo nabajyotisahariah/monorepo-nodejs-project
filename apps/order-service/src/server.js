@@ -35,7 +35,19 @@ app.post("/orders", async (req, res) => {
   try {
     const { userId, productId, quantity = 1 } = req.body;
 
-    logger.info(`Creating order for user ${userId} and product ${productId} with quantity ${quantity}`);  
+    logger.info(`Creating order for user ${userId} and product ${productId} with quantity ${quantity}`);
+
+    if (
+      !Number.isInteger(userId) ||
+      !Number.isInteger(productId) ||
+      !Number.isInteger(quantity) ||
+      quantity < 1
+    ) {
+      return res.status(400).json({
+        message: "userId and productId must be integers, and quantity must be a positive integer"
+      });
+    }
+
     const created = await createOrder(
       userId,
       productId,
@@ -44,22 +56,26 @@ app.post("/orders", async (req, res) => {
       PRODUCT_SERVICE_URL
     );
 
-    if (!created) {
+    if (created.status === "duplicate") {
+      return res.status(409).json({
+        message: "An order already exists for this user and product",
+        existingOrder: created.existingOrder
+      });
+    }
+
+    if (created.status === "not_found") {
       return res.status(400).json({
         message: "Unable to retrieve user or product"
       });
     }
 
     res.status(201).json({
-      user: created.user,
-      product: created.product,
-      quantity,
-      totalAmount: created.order.totalAmount
+      order: created.createdOrder.order
     });
 
   } catch (error) {
 
-    logger.error(error);
+    logger.error(error instanceof Error ? error.stack ?? error.message : String(error));
 
     res.status(500).json({
       message: "Order creation failed"

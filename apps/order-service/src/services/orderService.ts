@@ -1,14 +1,17 @@
-import type { Order, Product, User } from "@packages/common";
+import type { OrderWithDetails, Product, User } from "@packages/common";
 
 export interface CreatedOrder {
-  order: Order;
-  user: User;
-  product: Product;
+  order: OrderWithDetails;
 }
 
-const orders: Order[] = [];
+export type CreateOrderResult =
+  | { status: "created"; createdOrder: CreatedOrder }
+  | { status: "duplicate"; existingOrder: CreatedOrder }
+  | { status: "not_found" };
 
-export function getAllOrders(): Order[] {
+const orders: CreatedOrder[] = [];
+
+export function getAllOrders(): CreatedOrder[] {
   return orders;
 }
 
@@ -18,26 +21,35 @@ export async function createOrder(
   quantity: number,
   userServiceUrl: string,
   productServiceUrl: string
-): Promise<CreatedOrder | undefined> {
+): Promise<CreateOrderResult> {
+  const existingOrder = orders.find(
+    ({ order }) => order.user.id === userId && order.product.id === productId
+  );
+
+  if (existingOrder) {
+    return { status: "duplicate", existingOrder };
+  }
+
   const userResponse = await fetch(`${userServiceUrl}/users/${userId}`);
   const productResponse = await fetch(`${productServiceUrl}/products/${productId}`);
 
   if (!userResponse.ok || !productResponse.ok) {
-    return undefined;
+    return { status: "not_found" };
   }
 
   const user = (await userResponse.json()) as User;
   const product = (await productResponse.json()) as Product;
-  const order: Order = {
+  const order: OrderWithDetails = {
     id: String(orders.length + 1),
-    userId,
-    productId,
+    user,
+    product,
     quantity,
     totalAmount: product.price * quantity,
     status: "CREATED"
   };
 
-  orders.push(order);
+  const createdOrder = { order };
+  orders.push(createdOrder);
 
-  return { order, user, product };
+  return { status: "created", createdOrder };
 }

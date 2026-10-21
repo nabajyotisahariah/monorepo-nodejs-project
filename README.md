@@ -73,8 +73,9 @@ curl -X POST http://localhost:3000/orders \
 ```
 
 The order service retrieves the user and product before calculating the total.
-`quantity` is optional and defaults to `1`. Created orders can be listed at
-`GET http://localhost:3000/orders`.
+`quantity` is optional and defaults to `1`. The response contains an `order`
+object with the full `user` and `product` objects in place of their IDs.
+Created orders can be listed at `GET http://localhost:3000/orders`.
 
 ## Workspace layout
 
