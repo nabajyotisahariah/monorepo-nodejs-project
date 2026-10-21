@@ -1,6 +1,3 @@
-Yes. For your current **3 Node.js microservices + Helm + Kubernetes** project, moving to a **pnpm monorepo** is a good approach.
-
-I would structure it like this:
 
 ```text
 ecommerce-nodejs/
