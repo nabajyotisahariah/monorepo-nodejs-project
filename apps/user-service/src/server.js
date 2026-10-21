@@ -1,6 +1,7 @@
 import express from "express";
 import { logger } from "@packages/logger";
 import { formatDate } from "@packages/logger/formatters";
+import { getAllUsers, getUserById } from "./services/userService.js";
 
 const app = express();
 
@@ -16,29 +17,20 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/users", (req, res) => {
-
   logger.info("Fetching all users");
-  res.json([
-    {
-      id: 1,
-      name: "John"
-    },
-    {
-      id: 2,
-      name: "David"
-    }
-  ]);
+  res.json(getAllUsers());
 });
 
 app.get("/users/:id", (req, res) => {
-
   logger.info(`Fetching user with id ${req.params.id}`);
   const id = Number(req.params.id);
+  const user = getUserById(id);
 
-  res.json({
-    id,
-    name: `User ${id}`
-  });
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  res.json(user);
 });
 
 app.listen(PORT, () => {

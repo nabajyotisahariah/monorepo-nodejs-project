@@ -10,14 +10,13 @@ const PORT = process.env.PORT || 3000;
 
 //const USER_SERVICE_URL = config.userServiceUrl;
 //const PRODUCT_SERVICE_URL = config.productServiceUrl;
-console.log("USER_SERVICE_URL", process.env.USER_SERVICE_URL);
-console.log("PRODUCT_SERVICE_URL", process.env.PRODUCT_SERVICE_URL);
-console.log("process.env ", process.env);
+// console.log("USER_SERVICE_URL", process.env.USER_SERVICE_URL);
+// console.log("PRODUCT_SERVICE_URL", process.env.PRODUCT_SERVICE_URL);
 
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || "http://localhost:3001";
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || "http://localhost:3002";
 
-console.log("USER_SERVICE_URL", USER_SERVICE_URL," PRODUCT_SERVICE_URL", PRODUCT_SERVICE_URL);
+console.log("USER_SERVICE_URL", USER_SERVICE_URL," PRODUCT_SERVICE_URL", PRODUCT_SERVICE_URL, " Order Service PORT", PORT);
 const orders = [];
 
 app.use(express.json());
