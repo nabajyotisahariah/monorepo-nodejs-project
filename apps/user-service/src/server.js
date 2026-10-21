@@ -1,7 +1,7 @@
 import express from "express";
 import { logger } from "@packages/logger";
 import { formatDate } from "@packages/logger/formatters";
-import { getAllUsers, getUserById } from "./services/userService.js";
+import { getAllUsers, getUserById } from "./services/userService.ts";
 
 const app = express();
 

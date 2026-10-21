@@ -1,4 +1,6 @@
-const products = [
+import type { Product } from "@packages/common";
+
+const products: Product[] = [
   { id: 101, name: "Laptop", price: 75000 },
   { id: 102, name: "Keyboard", price: 3000 },
   { id: 103, name: "Mouse", price: 1200 },
@@ -21,10 +23,10 @@ const products = [
   { id: 120, name: "Graphics Tablet", price: 9500 }
 ];
 
-export function getAllProducts() {
+export function getAllProducts(): Product[] {
   return products;
 }
 
-export function getProductById(id) {
+export function getProductById(id: number): Product | undefined {
   return products.find((product) => product.id === id);
 }

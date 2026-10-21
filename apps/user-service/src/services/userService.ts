@@ -1,4 +1,6 @@
-const users = [
+import type { User } from "@packages/common";
+
+const users: User[] = [
   { id: 1, name: "John", address: "123 Main St" },
   { id: 2, name: "David", address: "456 Oak Ave" },
   { id: 3, name: "Emma", address: "789 Pine Rd" },
@@ -21,10 +23,10 @@ const users = [
   { id: 20, name: "Amelia", address: "115 Coastal Highway" }
 ];
 
-export function getAllUsers() {
+export function getAllUsers(): User[] {
   return users;
 }
 
-export function getUserById(id) {
+export function getUserById(id: number): User | undefined {
   return users.find((user) => user.id === id);
 }

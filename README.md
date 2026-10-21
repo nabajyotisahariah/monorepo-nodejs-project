@@ -85,12 +85,19 @@ apps/
   order-service/      Order API and calls to user/product services
 packages/
   config/             Shared environment configuration
+  common/             Shared TypeScript User and Product entities
   logger/             Shared logger and date formatter
 helm/
   ecommerce1.1/       Kubernetes Helm chart
 ```
 
-Each service imports the shared logger from `@packages/logger`. Workspace
+Each service uses the shared `User` and `Product` types from
+`@packages/common`; the user and product services apply them to their catalog
+data, and the order service uses them when creating orders. The shared
+`Order` entity is also defined there and used by the order service. Service
+logic is written in TypeScript and type-checked by each service's `build`
+script; `tsx` runs the JavaScript Express entry points and TypeScript service
+modules. The shared logger is provided by `@packages/logger`. Workspace
 packages are included through the root `pnpm-workspace.yaml`.
 
 ## Docker
