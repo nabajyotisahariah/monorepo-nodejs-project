@@ -1,0 +1,293 @@
+0. Create a GCP Project 
+
+1. Configure Docker authentication
+   $ gcloud auth configure-docker asia-south2-docker.pkg.dev
+    {
+    "credHelpers": {
+        "us-central1-docker.pkg.dev": "gcloud",
+        "asia-south2-docker.pkg.dev": "gcloud"
+    }
+    }
+    Adding credentials for: asia-south2-docker.pkg.dev
+    gcloud credential helpers already registered correctly
+
+
+2. Create Artifact Registry repository 
+        [GCP > Artifact Registry > https://console.cloud.google.com/artifacts]
+
+    $ gcloud artifacts repositories create ecommerce-nodejs-app-repo \
+        --repository-format=docker \
+        --location=asia-south2 \
+        --description="Microservices Nodejs"
+
+    Created repository [ecommerce-nodejs-app-repo].
+
+    Verify
+    $ gcloud artifacts repositories list --location=asia-south2    
+
+    ARTIFACT_REGISTRY
+    REPOSITORY: ecommerce-nodejs-app-repo
+    FORMAT: DOCKER
+    MODE: STANDARD_REPOSITORY
+    DESCRIPTION: Microservices Nodejs
+    LOCATION: asia-south2
+
+    Ref: asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo
+    
+3. Build the Node.js image from indivisual repo
+
+    Ref [5 Monrepo, Packages & Docker Dependency] file
+
+    # docker build -f apps/order-service/Dockerfile -t order-service:1.0 .
+    # docker build --no-cache -f apps/order-service/Dockerfile -t order-service:1.0 .
+    # docker run --rm -p 3000:3000 order-service:1.0
+
+    # docker build -f apps/user-service/Dockerfile -t user-service:1.0 .
+    # docker build --no-cache -f apps/user-service/Dockerfile -t user-service:1.0 .
+    # docker run --rm -p 3001:3000 user-service:1.0
+
+
+    # docker build -f apps/product-service/Dockerfile -t product-service:1.0 .
+    # docker build --no-cache -f apps/product-service/Dockerfile -t product-service:1.0 .
+    # docker run --rm -p 3002:3000 product-service:1.0
+                                                                                                     0.0s
+   $ docker images                                                                                                                                  i Info →   U  In Use
+      IMAGE                 ID             DISK USAGE   CONTENT SIZE   EXTRA
+      order-service:1.0     eebab876bbdb        243MB         59.7MB        
+      product-service:1.0   8a752ba67b9d        243MB         59.7MB        
+      user-service:1.0      0d25d63922ae        243MB         59.7MB      
+
+4. Tag the image
+    docker tag order-service:1.0 \
+        asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0
+    docker tag product-service:1.0 \
+        asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0
+    docker tag user-service:1.0 \
+        asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0
+
+    $ docker images 
+    IMAGE                                                                                                  ID             DISK USAGE   CONTENT SIZE   EXTRA
+    asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0     d44703495aa0           
+    asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0   10ae86b57621        
+    asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0      2c7dfadd4c54        
+    order-service:1.0                                                                                      d44703495aa0        
+    product-service:1.0                                                                                    10ae86b57621        
+    user-service:1.0                                                                                       2c7dfadd4c54        
+    
+5. Push the image [Push to Artifact Docker Registry]
+    docker push asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0
+    docker push asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0
+    docker push asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0
+-----------------------------
+Configuration on Kubernetes
+
+Step 1: Enable Container API using gcloud as container services & Kubernates is a part of container API
+	$ gcloud services enable container.googleapis.com
+		Operation "operations/acf.p2-1040682241529-2c36242c-3cce-4fad-b2da-e98d960ecdb6" finished successfully
+
+Step 2: Create a GKE Cluster
+
+	Create a GKE cluster with Autopilot Mode with 3 nodes
+    
+	$ gcloud container clusters create-auto k8s-cluster --region asia-south2
+
+    Creating cluster k8s-cluster in asia-south2... Cluster is being health-checked...
+    
+    kubeconfig entry generated for k8s-cluster.
+    NAME: k8s-cluster
+    LOCATION: asia-south2
+    MASTER_VERSION: 1.36.4-gke.1495002
+    MASTER_IP: 34.131.167.1
+
+Step 3: Connect to the cluster from Cloudshell or VM
+
+	$ gcloud container clusters get-credentials k8s-cluster --region asia-south2
+    Fetching cluster endpoint and auth data.
+    kubeconfig entry generated for k8s-cluster.
+
+	$ sudo apt-get install google-cloud-cli-gke-gcloud-auth-plugin
+	The following NEW packages will be installed:
+	google-cloud-cli-gke-gcloud-auth-plugin
+
+	$  gcloud container clusters get-credentials k8s-cluster --region asia-south2
+    Fetching cluster endpoint and auth data.
+    kubeconfig entry generated for k8s-cluster.
+
+	
+	Note:
+		sudo apt-get install kubectl
+		sudo apt-get install google-cloud-cli-gke-gcloud-auth-plugin
+		sudo apt-get install git
+		curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+		
+		instance-k8s-1:~$ gke-gcloud-auth-plugin --version
+		Kubernetes v0.1.0-gke.3-75-ge286783f0
+		
+--------------------------------
+
+
+Helm Configuration
+
+
+# helm lint ./helm/ecommerce1.1/
+# $ helm list
+# $ helm install microservices1.1 ./helm/ecommerce1.1/
+# $ helm uninstall microservices1.1
+        
+$ helm install microservices1.1 ./helm/ecommerce1.1/
+NAME: microservices1.1
+LAST DEPLOYED: Sun Sep 13 18:35:06 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+
+$ helm list
+NAME                    NAMESPACE       REVISION        UPDATED              STATUS          CHART                 APP VERSION
+microservices1.1        default         1                2026-10-21         deployed        ecommerce1.1-0.1.0      1.0.1  
+
+$ kubectl get nodes
+NAME                                         STATUS   ROLES    AGE   VERSION
+gk3-k8s-cluster-nap-5pabsr18-922950c1-5tmq   Ready    <none>   22s   v1.36.4-gke.1495002
+gk3-k8s-cluster-nap-5pabsr18-c9bb0d71-bgrb   Ready    <none>   20s   v1.36.4-gke.1495002
+gk3-k8s-cluster-nap-5pabsr18-e398ba89-287s   Ready    <none>   63s   v1.36.4-gke.1495002
+
+$ kubectl get pods
+NAME                               READY   STATUS             RESTARTS   AGE
+order-service-dc778f5c4-5gt9j      0/1     ErrImagePull       0          2m36s
+order-service-dc778f5c4-66z6j      0/1     ImagePullBackOff   0          2m36s
+product-service-6c8cc474bf-6wfmp   0/1     ImagePullBackOff   0          2m36s
+product-service-6c8cc474bf-mp5gh   0/1     ImagePullBackOff   0          2m36s
+user-service-8647d859bf-8mrck      0/1     ImagePullBackOff   0          2m36s
+user-service-8647d859bf-t49tw      0/1     ImagePullBackOff   0          2m36s
+
+# removing a pod
+$ kubectl delete pod order-service-69c85c4b97-jtqtb
+
+# Pods health
+$ kubectl describe pod order-service-69c85c4b97-2qd7f
+Name:             order-service-69c85c4b97-2qd7f
+Namespace:        default
+
+
+$ kubectl get svc
+NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   10m
+order-service     ClusterIP   34.118.227.35    <none>        80/TCP    3m10s
+product-service   ClusterIP   34.118.239.90    <none>        80/TCP    3m9s
+user-service      ClusterIP   34.118.230.181   <none>        80/TCP    3m9s
+
+$ kubectl get ingress
+NAME                CLASS    HOSTS   ADDRESS   PORTS   AGE
+ecommerce-ingress   <none>   *                 80      34s
+
+$  kubectl run test-client1 --rm -it --image=curlimages/curl -- sh
+If you don't see a command prompt, try pressing enter.
+~ $ curl http://product-service:80/products
+[{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]~ $ 
+~ $ curl http://user-service:80/users
+[{"id":1,"name":"John"},{"id":2,"name":"David"}]~
+
+$ kubectl exec -it product-service-54f97bd985-4ksbw -- sh
+/app # wget -qO- http://localhost:3000/products
+[
+  {"id":"101","name":"Laptop","price":85000},
+  {"id":"102","name":"Keyboard","price":2500},
+  {"id":"103","name":"Mouse","price":1200}
+]
+
+
+$ kubectl get all
+NAME                                   READY   STATUS    RESTARTS      AGE
+pod/order-service-7bc6c667d8-44hvh     1/1     Running   0             9m18s
+pod/order-service-7bc6c667d8-knt7k     1/1     Running   0             9m18s
+pod/product-service-76d9fc65d8-dpkzw   0/1     Running   5 (68s ago)   9m18s
+pod/product-service-76d9fc65d8-mg2ln   0/1     Running   5 (68s ago)   9m18s
+pod/test-client                        1/1     Running   0             13h
+pod/user-service-f84c69f76-n2rpd       0/1     Running   6 (67s ago)   9m18s
+pod/user-service-f84c69f76-xg45k       0/1     Running   5 (68s ago)   9m18s
+
+NAME                      TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   2d10h
+service/order-service     ClusterIP   34.118.228.195   <none>        80/TCP    9m19s
+service/product-service   ClusterIP   34.118.233.62    <none>        80/TCP    9m19s
+service/user-service      ClusterIP   34.118.231.193   <none>        80/TCP    9m19s
+
+NAME                              READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/order-service     2/2     2            2           9m18s
+deployment.apps/product-service   0/2     2            0           9m18s
+deployment.apps/user-service      0/2     2            0           9m18s
+
+NAME                                         DESIRED   CURRENT   READY   AGE
+replicaset.apps/order-service-7bc6c667d8     2         2         2       9m18s
+replicaset.apps/product-service-76d9fc65d8   2         2         0       9m18s
+replicaset.apps/user-service-f84c69f76       2         2         0       9m18s
+nabajyotisahari
+
+order-service      2/2 Running  ✅
+product-service    0/2        ❌
+user-service       0/2        ❌
+
+$ kubectl describe pod order-service-dc778f5c4-5gt9j
+Name:             order-service-dc778f5c4-5gt9j
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             gk3-k8s-cluster-nap-5pabsr18-e398ba89-287s/10.190.0.3
+Containers:
+  order-service:
+    Container ID:   
+    Image:          asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0
+    Image ID:       
+    Port:           3000/TCP (http)
+    Host Port:      0/TCP (http)
+    State:          Waiting
+      Reason:       ImagePullBackOff
+    Ready:          False
+    Restart Count:  0
+    Limits:
+      cpu:                500m
+      ephemeral-storage:  1Gi
+      memory:             512Mi
+    Requests:
+      cpu:                100m
+      ephemeral-storage:  1Gi
+      memory:             128Mi
+    Liveness:             http-get http://:3000/health delay=10s timeout=1s period=20s #success=1 #failure=3
+    Readiness:            http-get http://:3000/health delay=5s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      ORDER_SERVICE_URL:    http://order-service:80
+      PRODUCT_SERVICE_URL:  http://product-service:80
+      USER_SERVICE_URL:     http://user-service:80
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-lfv2q (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  kube-api-access-lfv2q:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 kubernetes.io/arch=amd64:NoSchedule
+                             node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason            Age                    From                                   Message
+  ----     ------            ----                   ----                                   -------
+  Warning  FailedScheduling  6m11s (x8 over 7m3s)   gke.io/optimize-utilization-scheduler  no nodes available to schedule pods
+  Warning  FailedScheduling  6m                     gke.io/optimize-utilization-scheduler  0/1 nodes are available: 1 node(s) had untolerated taint(s). no new claims to deallocate, preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.
+  Normal   Scheduled         5m56s                  gke.io/optimize-utilization-scheduler  Successfully assigned default/order-service-dc778f5c4-5gt9j to gk3-k8s-cluster-nap-5pabsr18-e398ba89-287s
+  Normal   Pulling           2m36s (x5 over 5m50s)  kubelet                                spec.containers{order-service}: Pulling image "asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0"
+  Warning  Failed            2m36s (x5 over 5m38s)  kubelet                                spec.containers{order-service}: Failed to pull image "asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0": failed to pull and unpack image "asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0": failed to resolve reference "asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0": failed to authorize: failed to fetch oauth token: unexpected status from GET request to https://asia-south2-docker.pkg.dev/v2/token?scope=repository%3Apython-project-1st-sep%2Fecommerce-nodejs-app-repo%2Forder-service%3Apull&service=asia-south2-docker.pkg.dev: 403 Forbidden
+  Warning  Failed            2m36s (x5 over 5m38s)  kubelet                                spec.containers{order-service}: Error: ErrImagePull
+  Normal   BackOff           34s (x21 over 5m37s)   kubelet                                spec.containers{order-service}: Back-off pulling image "asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0"
+  Warning  Failed            34s (x21 over 5m37s)   kubelet                                spec.containers{order-service}: Error: ImagePullBackOff
