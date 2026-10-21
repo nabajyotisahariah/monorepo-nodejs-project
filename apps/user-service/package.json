@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@packages/common": "workspace:*",
+    "@packages/config": "workspace:*",
     "@packages/logger": "workspace:*",
     "express": "^5.1.0",
     "tsx": "^4.20.6"

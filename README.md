@@ -47,6 +47,16 @@ The development scripts configure each service's local port and the order
 service's dependency URLs. The order service defaults to
 `http://localhost:3001` for users and `http://localhost:3002` for products.
 
+## Cross-origin requests
+
+All services enable CORS. By default, `CORS_ORIGINS` is `*`, allowing
+cross-origin browser requests from any origin without credentials. To restrict
+browser access, set `CORS_ORIGINS` to a comma-separated list of exact origins,
+including the scheme and optional port (for example,
+`https://shop.example.com,http://localhost:5173`). Credentialed requests are
+not enabled. CORS is a browser access policy, not authentication or API access
+control.
+
 ## API examples
 
 Check service health:

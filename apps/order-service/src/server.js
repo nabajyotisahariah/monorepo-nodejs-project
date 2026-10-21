@@ -1,4 +1,5 @@
 import express from "express";
+import { corsMiddleware } from "@packages/config";
 import { logger } from "@packages/logger";
 //import {config} from "@packages/config";
 import { formatDate } from "@packages/logger/formatters";
@@ -8,15 +9,20 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-//const USER_SERVICE_URL = config.userServiceUrl;
-//const PRODUCT_SERVICE_URL = config.productServiceUrl;
-// console.log("USER_SERVICE_URL", process.env.USER_SERVICE_URL);
-// console.log("PRODUCT_SERVICE_URL", process.env.PRODUCT_SERVICE_URL);
-
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || "http://localhost:3001";
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || "http://localhost:3002";
 
-console.log("USER_SERVICE_URL", USER_SERVICE_URL," PRODUCT_SERVICE_URL", PRODUCT_SERVICE_URL, " Order Service PORT", PORT);
+app.use(corsMiddleware);
+
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    const route = req.route?.path;
+    const path = route ? `${req.baseUrl}${route}` : "unmatched";
+    logger.info(`HTTP ${req.method} ${path} ${res.statusCode}`);
+  });
+  next();
+});
+
 app.use(express.json());
 
 app.get("/health", (req, res) => {
@@ -35,7 +41,7 @@ app.post("/orders", async (req, res) => {
   try {
     const { userId, productId, quantity = 1 } = req.body;
 
-    logger.info(`Creating order for user ${userId} and product ${productId} with quantity ${quantity}`);
+    logger.info("Order creation requested");
 
     if (
       !Number.isInteger(userId) ||
@@ -57,6 +63,7 @@ app.post("/orders", async (req, res) => {
     );
 
     if (created.status === "duplicate") {
+      logger.warn("Order creation rejected because the order already exists");
       return res.status(409).json({
         message: "An order already exists for this user and product",
         existingOrder: created.existingOrder
@@ -64,6 +71,7 @@ app.post("/orders", async (req, res) => {
     }
 
     if (created.status === "not_found") {
+      logger.warn("Order creation failed because a user or product was not found");
       return res.status(400).json({
         message: "Unable to retrieve user or product"
       });
@@ -72,15 +80,19 @@ app.post("/orders", async (req, res) => {
     res.status(201).json({
       order: created.createdOrder.order
     });
-
+    logger.info("Order created");
   } catch (error) {
-
     logger.error(error instanceof Error ? error.stack ?? error.message : String(error));
 
     res.status(500).json({
       message: "Order creation failed"
     });
   }
+});
+
+app.use((error, _req, _res, next) => {
+  logger.error(error instanceof Error ? error.stack ?? error.message : String(error));
+  next(error);
 });
 
 app.listen(PORT, () => {

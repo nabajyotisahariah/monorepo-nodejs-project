@@ -193,6 +193,9 @@ importers:
       '@packages/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@packages/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@packages/logger':
         specifier: workspace:*
         version: link:../../packages/logger
@@ -212,6 +215,9 @@ importers:
       '@packages/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@packages/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@packages/logger':
         specifier: workspace:*
         version: link:../../packages/logger
