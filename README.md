@@ -46,14 +46,16 @@ pnpm --filter order-service dev
 Or Running build services locally
 
 ```sh
+pnpm build
+
 $ PORT=3001 pnpm start:user
-$ pnpm --filter user-service start
+  pnpm --filter user-service start
 
-$  PORT=3002 pnpm start:product
-$ pnpm --filter product-service start
+$ PORT=3002 pnpm start:product
+  pnpm --filter product-service start
 
-$  PORT=3000 pnpm start:order
-$ pnpm --filter order-service start
+$ PORT=3000 pnpm start:order
+  pnpm --filter order-service start
 ```
 
 The development scripts configure each service's local port and the order
