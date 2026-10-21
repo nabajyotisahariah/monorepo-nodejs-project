@@ -1,21 +1,3 @@
-# FROM node:22-alpine
-
-# WORKDIR /app
-
-# COPY package*.json ./
-
-# RUN npm install --omit=dev
-
-# COPY src ./src
-
-# EXPOSE 3000
-
-# CMD ["npm", "start"]
-
-#docker build -f apps/order-service/Dockerfile -t order-service:2.0 .
-#docker build --no-cache -f apps/order-service/Dockerfile -t order-service:2.0 .
-#docker run --rm -p 3000:3000 order-service:2.0
-
 FROM node:22-alpine
 
 WORKDIR /app
