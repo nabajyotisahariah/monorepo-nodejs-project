@@ -104,9 +104,9 @@ Created orders can be listed at `GET http://localhost:3000/orders`.
 
 ```text
 apps/
-  user-service/       User API
-  product-service/    Product API
-  order-service/      Order API and calls to user/product services
+  user-service/       User API (routes in src/routes/)
+  product-service/    Product API (routes in src/routes/)
+  order-service/      Order API and calls to user/product services (routes in src/routes/)
 packages/
   config/             Shared environment configuration
   common/             Shared TypeScript User and Product entities

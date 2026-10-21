@@ -2,7 +2,7 @@ import express from "express";
 import { corsMiddleware } from "@packages/config";
 import { logger } from "@packages/logger";
 import { formatDate } from "@packages/logger/formatters";
-import { getAllUsers, getUserById } from "./services/userService.ts";
+import routes from "./routes/index.js";
 
 const app = express();
 
@@ -20,29 +20,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-
-app.get("/health", (req, res) => {
-  res.json({
-    service: "user-service",
-    status: "UP"
-  });
-});
-
-app.get("/users", (req, res) => {
-  res.json(getAllUsers());
-});
-
-app.get("/users/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const user = getUserById(id);
-
-  if (!user) {
-    logger.warn("User lookup failed because the user was not found");
-    return res.status(404).json({ message: "User not found" });
-  }
-
-  res.json(user);
-});
+app.use(routes);
 
 app.use((error, _req, _res, next) => {
   logger.error(error instanceof Error ? error.stack ?? error.message : String(error));
