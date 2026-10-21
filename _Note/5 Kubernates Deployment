@@ -176,6 +176,13 @@ order-service     ClusterIP   34.118.227.35    <none>        80/TCP    3m10s
 product-service   ClusterIP   34.118.239.90    <none>        80/TCP    3m9s
 user-service      ClusterIP   34.118.230.181   <none>        80/TCP    3m9s
 
+$ kubectl get svc
+NAME              TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)        AGE
+kubernetes        ClusterIP      34.118.224.1     <none>           443/TCP        41m
+order-service     LoadBalancer   34.118.226.106   34.131.155.191   80:30764/TCP   2m8s
+product-service   LoadBalancer   34.118.238.200   34.131.86.243    80:31420/TCP   2m8s
+user-service      LoadBalancer   34.118.234.124   34.131.189.227   80:31269/TCP   2m8s
+
 $ kubectl get ingress
 NAME                CLASS    HOSTS   ADDRESS   PORTS   AGE
 ecommerce-ingress   <none>   *                 80      34s
