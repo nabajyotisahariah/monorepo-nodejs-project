@@ -136,15 +136,14 @@ Helm Configuration
         
 $ helm install microservices1.1 ./helm/ecommerce1.1/
 NAME: microservices1.1
-LAST DEPLOYED: Sun Sep 13 18:35:06 2026
 NAMESPACE: default
 STATUS: deployed
 REVISION: 1
 DESCRIPTION: Install complete
 
 $ helm list
-NAME                    NAMESPACE       REVISION        UPDATED              STATUS          CHART                 APP VERSION
-microservices1.1        default         1                2026-10-21         deployed        ecommerce1.1-0.1.0      1.0.1  
+NAME              REVISION        UPDATED            STATUS          CHART                 APP VERSION
+microservices1.1       1         2026-10-21         deployed        ecommerce1.1-0.1.0      1.0.1  
 
 $ kubectl get nodes
 NAME                                         STATUS   ROLES    AGE   VERSION
@@ -153,13 +152,13 @@ gk3-k8s-cluster-nap-5pabsr18-c9bb0d71-bgrb   Ready    <none>   20s   v1.36.4-gke
 gk3-k8s-cluster-nap-5pabsr18-e398ba89-287s   Ready    <none>   63s   v1.36.4-gke.1495002
 
 $ kubectl get pods
-NAME                               READY   STATUS             RESTARTS   AGE
-order-service-dc778f5c4-5gt9j      0/1     ErrImagePull       0          2m36s
-order-service-dc778f5c4-66z6j      0/1     ImagePullBackOff   0          2m36s
-product-service-6c8cc474bf-6wfmp   0/1     ImagePullBackOff   0          2m36s
-product-service-6c8cc474bf-mp5gh   0/1     ImagePullBackOff   0          2m36s
-user-service-8647d859bf-8mrck      0/1     ImagePullBackOff   0          2m36s
-user-service-8647d859bf-t49tw      0/1     ImagePullBackOff   0          2m36s
+NAME                               READY   STATUS    RESTARTS   AGE
+order-service-87fdd54f8-bp44j      1/1     Running   0          114s
+order-service-87fdd54f8-bv7r7      1/1     Running   0          114s
+product-service-64bcc8bd7c-42xdg   1/1     Running   0          114s
+product-service-64bcc8bd7c-r9ngv   1/1     Running   0          114s
+user-service-898fc855f-sjvvd       1/1     Running   0          113s
+user-service-898fc855f-w5mt6       1/1     Running   0          113s
 
 # removing a pod
 $ kubectl delete pod order-service-69c85c4b97-jtqtb
@@ -182,51 +181,23 @@ NAME                CLASS    HOSTS   ADDRESS   PORTS   AGE
 ecommerce-ingress   <none>   *                 80      34s
 
 $  kubectl run test-client1 --rm -it --image=curlimages/curl -- sh
-If you don't see a command prompt, try pressing enter.
 ~ $ curl http://product-service:80/products
-[{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]~ $ 
+[{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
 ~ $ curl http://user-service:80/users
 [{"id":1,"name":"John"},{"id":2,"name":"David"}]~
-
-$ kubectl exec -it product-service-54f97bd985-4ksbw -- sh
-/app # wget -qO- http://localhost:3000/products
-[
-  {"id":"101","name":"Laptop","price":85000},
-  {"id":"102","name":"Keyboard","price":2500},
-  {"id":"103","name":"Mouse","price":1200}
-]
+~ $ curl --location 'http://order-service:80/orders' \
+> --header 'Content-Type: application/json' \
+> --data '{"userId":4,"productId":104,"quantity":2}'
+{"order":{"id":"1","user":{"id":4,"name":"Olivia","address":"24 Cedar Lane"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}
+ $ curl --location 'http://order-service:80/orders'
+[{"order":{"id":"1","user":{"id":4,"name":"Olivia","address":"24 Cedar Lane"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}]
 
 
-$ kubectl get all
-NAME                                   READY   STATUS    RESTARTS      AGE
-pod/order-service-7bc6c667d8-44hvh     1/1     Running   0             9m18s
-pod/order-service-7bc6c667d8-knt7k     1/1     Running   0             9m18s
-pod/product-service-76d9fc65d8-dpkzw   0/1     Running   5 (68s ago)   9m18s
-pod/product-service-76d9fc65d8-mg2ln   0/1     Running   5 (68s ago)   9m18s
-pod/test-client                        1/1     Running   0             13h
-pod/user-service-f84c69f76-n2rpd       0/1     Running   6 (67s ago)   9m18s
-pod/user-service-f84c69f76-xg45k       0/1     Running   5 (68s ago)   9m18s
-
-NAME                      TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
-service/kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   2d10h
-service/order-service     ClusterIP   34.118.228.195   <none>        80/TCP    9m19s
-service/product-service   ClusterIP   34.118.233.62    <none>        80/TCP    9m19s
-service/user-service      ClusterIP   34.118.231.193   <none>        80/TCP    9m19s
-
-NAME                              READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/order-service     2/2     2            2           9m18s
-deployment.apps/product-service   0/2     2            0           9m18s
-deployment.apps/user-service      0/2     2            0           9m18s
-
-NAME                                         DESIRED   CURRENT   READY   AGE
-replicaset.apps/order-service-7bc6c667d8     2         2         2       9m18s
-replicaset.apps/product-service-76d9fc65d8   2         2         0       9m18s
-replicaset.apps/user-service-f84c69f76       2         2         0       9m18s
-nabajyotisahari
-
-order-service      2/2 Running  ✅
-product-service    0/2        ❌
-user-service       0/2        ❌
+$ kubectl exec -it product-service-64bcc8bd7c-42xdg -- sh
+/app/apps/product-service # wget -qO- http://localhost:3000/products
+[{"id":101,"name":"Laptop","price":75000},
+{"id":102,"name":"Keyboard","price":3000},
+{"id":103,"name":"Mouse","price":1200}]
 
 $ kubectl describe pod order-service-dc778f5c4-5gt9j
 Name:             order-service-dc778f5c4-5gt9j
@@ -240,54 +211,9 @@ Containers:
     Image:          asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0
     Image ID:       
     Port:           3000/TCP (http)
-    Host Port:      0/TCP (http)
-    State:          Waiting
-      Reason:       ImagePullBackOff
-    Ready:          False
-    Restart Count:  0
-    Limits:
-      cpu:                500m
-      ephemeral-storage:  1Gi
-      memory:             512Mi
-    Requests:
-      cpu:                100m
-      ephemeral-storage:  1Gi
-      memory:             128Mi
-    Liveness:             http-get http://:3000/health delay=10s timeout=1s period=20s #success=1 #failure=3
-    Readiness:            http-get http://:3000/health delay=5s timeout=1s period=10s #success=1 #failure=3
     Environment:
       ORDER_SERVICE_URL:    http://order-service:80
       PRODUCT_SERVICE_URL:  http://product-service:80
       USER_SERVICE_URL:     http://user-service:80
     Mounts:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-lfv2q (ro)
-Conditions:
-  Type                        Status
-  PodReadyToStartContainers   True 
-  Initialized                 True 
-  Ready                       False 
-  ContainersReady             False 
-  PodScheduled                True 
-Volumes:
-  kube-api-access-lfv2q:
-    Type:                    Projected (a volume that contains injected data from multiple sources)
-    TokenExpirationSeconds:  3607
-    ConfigMapName:           kube-root-ca.crt
-    Optional:                false
-    DownwardAPI:             true
-QoS Class:                   Burstable
-Node-Selectors:              <none>
-Tolerations:                 kubernetes.io/arch=amd64:NoSchedule
-                             node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
-                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
-Events:
-  Type     Reason            Age                    From                                   Message
-  ----     ------            ----                   ----                                   -------
-  Warning  FailedScheduling  6m11s (x8 over 7m3s)   gke.io/optimize-utilization-scheduler  no nodes available to schedule pods
-  Warning  FailedScheduling  6m                     gke.io/optimize-utilization-scheduler  0/1 nodes are available: 1 node(s) had untolerated taint(s). no new claims to deallocate, preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.
-  Normal   Scheduled         5m56s                  gke.io/optimize-utilization-scheduler  Successfully assigned default/order-service-dc778f5c4-5gt9j to gk3-k8s-cluster-nap-5pabsr18-e398ba89-287s
-  Normal   Pulling           2m36s (x5 over 5m50s)  kubelet                                spec.containers{order-service}: Pulling image "asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0"
-  Warning  Failed            2m36s (x5 over 5m38s)  kubelet                                spec.containers{order-service}: Failed to pull image "asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0": failed to pull and unpack image "asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0": failed to resolve reference "asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0": failed to authorize: failed to fetch oauth token: unexpected status from GET request to https://asia-south2-docker.pkg.dev/v2/token?scope=repository%3Apython-project-1st-sep%2Fecommerce-nodejs-app-repo%2Forder-service%3Apull&service=asia-south2-docker.pkg.dev: 403 Forbidden
-  Warning  Failed            2m36s (x5 over 5m38s)  kubelet                                spec.containers{order-service}: Error: ErrImagePull
-  Normal   BackOff           34s (x21 over 5m37s)   kubelet                                spec.containers{order-service}: Back-off pulling image "asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0"
-  Warning  Failed            34s (x21 over 5m37s)   kubelet                                spec.containers{order-service}: Error: ImagePullBackOff

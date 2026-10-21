@@ -89,7 +89,8 @@ services:
 
 
 service:
-  type: ClusterIP
+  #type: ClusterIP      #For Ingress load Balancing
+  type: LoadBalancer    #For without Ingress load Balancing
   port: 80
 
 
