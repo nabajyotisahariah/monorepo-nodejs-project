@@ -1,0 +1,71 @@
+Project moved from a standalone project to a **pnpm monorepo with shared packages**, 
+the Dockerfile needs to change.
+
+6_ecommerce_monorepo_nodejs/
+│
+├── package.json
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+│
+├── apps/
+│   ├── user-service/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   ├── node_modules/
+│   │   └── src/
+│   │       └── server.js
+│   │
+│   ├── product-service/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── src/
+│   │
+│   └── order-service/
+│       ├── Dockerfile
+│       ├── package.json
+│       └── src/
+│
+├── packages/
+│   └── logger/
+│       ├── package.json
+│       └── src/
+│
+└── helm/
+    └── ecommerce1.1/
+
+
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Enable pnpm
+RUN corepack enable
+
+# Copy monorepo configuration
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+
+# Copy order-service package definition
+COPY apps/order-service/package.json ./apps/order-service/package.json
+
+# Copy shared packages
+COPY packages ./packages
+
+# Install order-service dependencies
+RUN pnpm install --filter order-service --prod
+
+# Copy order-service source
+COPY apps/order-service ./apps/order-service
+
+# Switch to order-service directory
+WORKDIR /app/apps/order-service
+
+EXPOSE 3000
+
+CMD ["pnpm", "start"]
+
+
+-------
+
+docker build -f apps/order-service/Dockerfile -t order-service:2.0 .
+docker build --no-cache -f apps/order-service/Dockerfile -t order-service:2.0 .
+docker run --rm -p 3000:3000 order-service:2.0

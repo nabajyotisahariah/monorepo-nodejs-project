@@ -1,0 +1,184 @@
+
+$ docker run --rm -p 3001:3000 user-service:2.0
+$ node src/server.js
+node:internal/modules/package_json_reader:314
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'express' imported from /app/apps/user-service/src/server.js
+  
+Your structure is:
+
+```text
+6_ecommerce_monorepo_nodejs/
+│
+├── package.json
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+│
+├── apps/
+│   ├── user-service/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   ├── node_modules/
+│   │   └── src/
+│   │       └── server.js
+│   │
+│   ├── product-service/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── src/
+│   │
+│   └── order-service/
+│       ├── Dockerfile
+│       ├── package.json
+│       └── src/
+│
+├── packages/
+│   └── logger/
+│       ├── package.json
+│       └── src/
+│
+└── helm/
+    └── ecommerce1.1/
+```
+
+### Your `user-service` Dockerfile
+
+Given this exact architecture, use:
+
+```dockerfile
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Enable pnpm
+RUN corepack enable
+
+# Copy root monorepo files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+
+# Copy user-service package.json
+COPY apps/user-service/package.json ./apps/user-service/package.json
+
+# Copy shared packages
+COPY packages ./packages
+
+# Install user-service dependencies
+RUN pnpm install --filter user-service...
+
+# Copy user-service source code
+COPY apps/user-service/src ./apps/user-service/src
+
+# Move to service directory
+WORKDIR /app/apps/user-service
+
+EXPOSE 3000
+
+CMD ["pnpm", "start"]
+```
+
+### Build command
+
+From:
+
+```text
+6_ecommerce_monorepo_nodejs/
+```
+
+run:
+
+```bash
+docker build -f apps/user-service/Dockerfile -t user-service:2.0 .
+```
+
+Then:
+
+```bash
+docker run --rm -p 3001:3000 user-service:2.0
+```
+
+---
+
+### Why this should work
+
+Your dependency chain is:
+
+```text
+user-service
+     │
+     ├── express
+     │
+     └── @packages/logger
+              │
+              └── packages/logger
+```
+
+Therefore Docker needs:
+
+```text
+package.json
+pnpm-workspace.yaml
+pnpm-lock.yaml
+       │
+       ├── apps/user-service/package.json
+       │
+       └── packages/logger/
+```
+
+The Dockerfile now copies exactly those pieces before running:
+
+```bash
+pnpm install --filter user-service...
+```
+
+The `...` is important here because it tells pnpm to include the workspace dependencies required by `user-service`.
+
+### One thing I would change
+
+You currently have:
+
+```text
+apps/user-service/node_modules/
+```
+
+and also:
+
+```text
+6_ecommerce_monorepo_nodejs/node_modules/
+```
+
+You **should not copy either `node_modules` directory into the Docker image**.
+
+Add a root `.dockerignore`:
+
+```text
+node_modules
+**/node_modules
+.git
+.gitignore
+_Note
+*.log
+```
+
+Then your Docker build remains clean:
+
+```text
+Host
+ │
+ ├── node_modules        ← ignored
+ ├── apps/*/node_modules ← ignored
+ │
+ └── Docker build
+       │
+       ├── package.json
+       ├── pnpm-lock.yaml
+       ├── pnpm-workspace.yaml
+       ├── apps/user-service/package.json
+       ├── apps/user-service/src
+       └── packages/
+```
+
+**One final recommendation:** don't copy the entire `apps/user-service` directory with
+ `COPY apps/user-service ./apps/user-service`, because that would potentially copy its local
+  `node_modules`. Your current `COPY apps/user-service/src ...` is cleaner.

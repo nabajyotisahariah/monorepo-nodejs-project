@@ -1,0 +1,129 @@
+Yes. Since your services are currently **JavaScript + Node.js**, I recommend converting the shared logger to JavaScript as well.
+
+### 1. `packages/logger/src/index.js`
+
+```javascript
+export const logger = {
+  info(message) {
+    console.log(`[INFO] ${message}`);
+  },
+
+  error(message) {
+    console.error(`[ERROR] ${message}`);
+  },
+
+  warn(message) {
+    console.warn(`[WARN] ${message}`);
+  }
+};
+```
+
+I added `warn()` as a useful common logging method.
+
+### 2. `packages/logger/package.json`
+
+```json
+{
+  "name": "@ecommerce/logger",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  }
+}
+```
+
+### 3. Add it to `user-service`
+
+`apps/user-service/package.json`:
+
+```json
+{
+  "name": "user-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@ecommerce/logger": "workspace:*",
+    "express": "^5.1.0"
+  }
+}
+```
+
+Do the same for `product-service` and `order-service`.
+
+### 4. Use it in your service
+
+`apps/user-service/src/server.js`:
+
+```javascript
+import express from "express";
+import { logger } from "@ecommerce/logger";
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+
+app.get("/health", (req, res) => {
+  logger.info("Health check called");
+
+  res.json({
+    service: "user-service",
+    status: "UP"
+  });
+});
+
+app.get("/users", (req, res) => {
+  logger.info("Fetching users");
+
+  res.json([
+    { id: 1, name: "John" },
+    { id: 2, name: "David" }
+  ]);
+});
+
+app.listen(PORT, () => {
+  logger.info(`User service running on port ${PORT}`);
+});
+```
+
+Then from the **monorepo root**:
+
+```bash
+pnpm install
+pnpm --filter user-service start
+```
+
+You should get:
+
+```text
+[INFO] User service running on port 3000
+```
+
+Your monorepo now looks like:
+
+```text
+ecommerce-nodejs/
+├── apps/
+│   ├── user-service/
+│   ├── product-service/
+│   └── order-service/
+│
+├── packages/
+│   └── logger/
+│       ├── src/
+│       │   └── index.js
+│       └── package.json
+│
+├── package.json
+├── pnpm-workspace.yaml
+└── pnpm-lock.yaml
+```
+
+**This is the simplest setup for your current JavaScript-based services.** Later, if you migrate the services to TypeScript, you can convert `logger` back to TypeScript and add a proper build step.

@@ -1,0 +1,19 @@
+{
+  "name": "order-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "set PORT=3000 && set USER_SERVICE_URL=http://localhost:3001 && set PRODUCT_SERVICE_URL=http://localhost:3002 && nodemon src/server.js",
+    "start": "node src/server.js",
+    "build": "echo 'No build step required for this service.'",
+    "lint": "eslint . --ext .js",
+    "test": "echo 'No tests defined for this service.'"
+  },
+  "dependencies": {
+    "@packages/config": "workspace:*",
+    "@packages/logger": "workspace:*",
+    "express": "^5.1.0",
+    "nodemon": "^3.1.14"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "ecommerce monorepo nodejs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "start:user": "pnpm --filter user-service start",
+    "start:product": "pnpm --filter product-service start",
+    "start:order": "pnpm --filter order-service start",
+    "build": "pnpm -r run build",
+    "start": "pnpm -r --parallel start",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.4.1",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.4.1",
+  "type": "module"
+}
