@@ -1,11 +1,28 @@
+# # Check the resolved Compose configuration
+# docker compose config
+
+# # Recreate containers with the updated configuration
+# docker compose up -d --build
+
+# # Verify environment variables inside a service
+# docker compose exec order-service printenv USER_SERVICE_URL
+
+# # Test an API through NGINX
+# curl http://localhost:82/api/users/health
+
 
 services:
   nginx:
     image: nginx:alpine
     ports:
       - "82:80"
+    environment:
+      USER_SERVICE_URL: http://user-service:3000
+      PRODUCT_SERVICE_URL: http://product-service:3000
+      ORDER_SERVICE_URL: http://order-service:3000
+      NGINX_ENVSUBST_FILTER: "^(USER_SERVICE_URL|PRODUCT_SERVICE_URL|ORDER_SERVICE_URL)$"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
       user-service:
         condition: service_healthy
@@ -13,6 +30,12 @@ services:
         condition: service_healthy
       order-service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     restart: unless-stopped
 
   user-service:
@@ -50,8 +73,10 @@ services:
     expose:
       - "3000"
     environment:
-      - USER_SERVICE_URL=http://user-service:3000
-      - PRODUCT_SERVICE_URL=http://product-service:3000
+      # Use Secret Manager or Vault to manage secrets in production instead of hardcoding
+      # them in the docker-compose file.
+      USER_SERVICE_URL: http://user-service:3000
+      PRODUCT_SERVICE_URL: http://product-service:3000
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
