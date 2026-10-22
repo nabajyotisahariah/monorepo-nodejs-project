@@ -1,0 +1,220 @@
+For your Node.js monorepo with Content, Order, and Payment microservices, you can implement a reverse proxy using either Nginx or an Express-based API Gateway.
+
+My recommendation for a production architecture is:
+
+- Nginx: reverse proxy for routing incoming HTTP traffic to the right service.
+- Node.js API Gateway: authentication, authorization, rate limiting, request validation, and API-specific logic.
+- Microservices: independently running Content, Order, and Payment applications.
+
+A reverse proxy receives a client request and forwards it to the appropriate backend. The client sees one public endpoint instead of needing to know every service address.
+
+## 1. Architecture
+
+Web / Mobile Client
+
+One public URL
+
+Nginx Reverse Proxy
+
+Port 80 / 443 · Path-based routing
+
+Content
+
+3001
+
+/api/content
+
+Order
+
+3002
+
+/api/orders
+
+Payment
+
+3003
+
+/api/payments
+
+Example client requests:
+
+- `GET http://localhost/api/content/products`
+- `POST http://localhost/api/orders`
+- `POST http://localhost/api/payments`
+
+Nginx forwards each request to the correct backend based on the URL path.
+
+## 2. Implement Nginx reverse proxy
+
+Create this configuration file in your monorepo:
+
+```
+ecommerce-monorepo/
+├── apps/
+│   ├── content-service/
+│   ├── order-service/
+│   └── payment-service/
+├── nginx/
+│   └── nginx.conf
+├── docker-compose.yml
+└── package.json
+```
+
+### Step 1: Configure `nginx/nginx.conf`
+
+```
+
+events {}
+
+http {
+    upstream content_service {
+        server content-service:3001;
+    }
+
+    upstream order_service {
+        server order-service:3002;
+    }
+
+    upstream payment_service {
+        server payment-service:3003;
+    }
+
+    server {
+        listen 80;
+        server_name localhost;
+
+        # Content Service
+        location /api/content/ {
+            proxy_pass http://content_service/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Order Service
+        location /api/orders/ {
+            proxy_pass http://order_service/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Payment Service
+        location /api/payments/ {
+            proxy_pass http://payment_service/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
+
+```
+
+Important: The trailing slash in `proxy_pass http://content_service/;` means Nginx replaces the matching `/api/content/` prefix with `/`.
+
+For example:
+
+| Incoming request        | Backend request                 |
+| ----------------------- | ------------------------------- |
+| `/api/content/products` | `content-service:3001/products` |
+| `/api/orders/123`       | `order-service:3002/123`        |
+| `/api/payments/456`     | `payment-service:3003/456`      |
+
+This example assumes each service exposes routes without its gateway prefix. If your backend already defines `/api/content/products`, configure the proxy to preserve that prefix instead.
+
+## 3. Run everything using Docker Compose
+
+Create `docker-compose.yml`:
+
+```
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - content-service
+      - order-service
+      - payment-service
+    restart: unless-stopped
+
+  content-service:
+    build: ./apps/content-service
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+  order-service:
+    build: ./apps/order-service
+    expose:
+      - "3002"
+    restart: unless-stopped
+
+  payment-service:
+    build: ./apps/payment-service
+    expose:
+      - "3003"
+    restart: unless-stopped
+
+```
+
+Each service directory needs a Dockerfile that builds and starts its Node.js application on the specified port. Ensure each application listens on `0.0.0.0`, not only `localhost`, inside its container.
+
+Docker Compose automatically creates a network and DNS entries for service names, so Nginx can resolve `content-service`, `order-service`, and `payment-service`. `expose` documents the internal ports; it does not publish them on the host.
+
+Start the stack:
+
+```
+docker compose up -d --build
+```
+
+Check the Nginx logs:
+
+```
+docker compose logs -f nginx
+```
+
+## 4. Test the reverse proxy
+
+```
+
+# Content
+curl http://localhost/api/content/products
+
+# Order
+curl http://localhost/api/orders/123
+
+# Payment
+curl http://localhost/api/payments/456
+
+```
+
+Use endpoints that your services actually implement. You can also validate the Nginx configuration before reloading it:
+
+```
+docker compose exec nginx nginx -t
+```
+
+## 5. Nginx vs. Node.js API Gateway
+
+| Capability                              | Nginx                 | Node.js API Gateway |
+| --------------------------------------- | --------------------- | ------------------- |
+| Path-based routing                      | Excellent             | Yes                 |
+| TLS termination                         | Yes                   | Possible            |
+| Load balancing                          | Yes                   | Possible            |
+| Custom authentication / authorization   | Basic building blocks | Flexible            |
+| Business-specific request orchestration | Limited               | Flexible            |
+| TypeScript integration                  | No                    | Yes                 |
+
+For production, use HTTPS, restrict direct public access to the backend services, validate authentication and authorization, configure timeouts and rate limits, and handle upstream failures. For payment requests, also implement idempotency and secure payment-provider verification.
+
+One key distinction: Nginx routes HTTP requests, but it does not replace service discovery. In Docker Compose, Docker DNS resolves service names; in Kubernetes, Kubernetes Services provide stable internal endpoints and DNS.
+
+If you deploy these services on Kubernetes/GKE later, the same public URL structure can be implemented using an Ingress or Gateway API instead of running Nginx as a standalone Compose service.
