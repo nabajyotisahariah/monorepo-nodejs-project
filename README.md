@@ -1,6 +1,6 @@
 # Node.js E-commerce Microservices Monorepo
 
-A pnpm workspace containing three Express services and shared packages. The
+A pnpm workspace containing four Express services (including an API gateway) and shared packages. The
 order service calls the user and product services when creating an order. The
 repository also includes Dockerfiles for each service and a Helm chart for
 Kubernetes deployment.
@@ -9,6 +9,7 @@ Kubernetes deployment.
 
 | Service | Local port | Endpoints |
 | --- | ---: | --- |
+| API Gateway | `82` | Proxies `/api/users`, `/api/products`, `/api/orders` |
 | User | `3001` | `GET /health`, `GET /users`, `GET /users/:id` |
 | Product | `3002` | `GET /health`, `GET /products`, `GET /products/:id` |
 | Order | `3000` | `GET /health`, `GET /orders`, `POST /orders` |
@@ -38,6 +39,7 @@ pnpm dev
 Or start a single service:
 
 ```sh
+pnpm --filter api-gateway dev
 pnpm --filter user-service dev
 pnpm --filter product-service dev
 pnpm --filter order-service dev
@@ -47,6 +49,9 @@ Or Running build services locally
 
 ```sh
 pnpm build
+
+$ PORT=82 pnpm start:api-gateway
+  pnpm --filter api-gateway start
 
 $ PORT=3001 pnpm start:user
   pnpm --filter user-service start
@@ -102,10 +107,20 @@ The order service retrieves the user and product before calculating the total.
 object with the full `user` and `product` objects in place of their IDs.
 Created orders can be listed at `GET http://localhost:3000/orders`.
 
+API Gateway Endpoints
+```
+curl --location 'http://localhost:82/api/products/product'
+curl --location 'http://localhost:82/api/users/user'
+curl --location 'http://localhost:82/api/orders/order' \
+--data '{"userId":7,"productId":103,"quantity":2}'
+curl --location 'http://localhost:82/api/orders/order'
+```
+
 ## Workspace layout
 
 ```text
 apps/
+  api-gateway/        API Gateway proxying requests to services (runs on port 82)
   user-service/       User API (routes in src/routes/)
   product-service/    Product API (routes in src/routes/)
   order-service/      Order API and calls to user/product services (routes in src/routes/)

@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
+    "start:api-gateway": "pnpm --filter api-gateway start",
     "start:user": "pnpm --filter user-service start",
     "start:product": "pnpm --filter product-service start",
     "start:order": "pnpm --filter order-service start",

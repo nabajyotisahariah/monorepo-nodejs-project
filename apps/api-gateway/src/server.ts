@@ -48,5 +48,5 @@ app.use(
 );
 
 app.listen(PORT, () => {
-  console.log("API Gateway listening on port 80");
+  console.log(`API Gateway listening on port ${PORT}`);
 });
