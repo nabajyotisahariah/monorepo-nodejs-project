@@ -19,10 +19,10 @@
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "12.4.1",
+      "version": "10.28.0",
       "onFail": "download"
     }
   },
-  "packageManager": "pnpm@12.4.1",
+  "packageManager": "pnpm@10.28.0",
   "type": "module"
 }

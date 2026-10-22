@@ -14,11 +14,11 @@ router.get("/health", (_req, res) => {
   });
 });
 
-router.get("/orders", (_req, res) => {
+router.get("/order", (_req, res) => {
   res.json(getAllOrders());
 });
 
-router.post("/orders", async (req, res) => {
+router.post("/order", async (req, res) => {
   try {
     const { userId, productId, quantity = 1 } = req.body;
 

@@ -1,0 +1,211 @@
+In a Node.js monorepo, you can route requests to multiple services — Content, Order, and Payment — using an API Gateway or a reverse proxy. The monorepo organizes the code in one repository, but each service can run as an independent process and be deployed separately.
+
+For an e-commerce application, I recommend this architecture:
+
+## 1. Recommended architecture
+
+Web / Mobile Client
+
+Different user requests
+
+API Gateway — Express / Nginx
+
+Routing · Authentication · Rate limiting
+
+Content
+
+Port 3001
+
+Catalog / products
+
+Order
+
+Port 3002
+
+Cart / orders
+
+Payment
+
+Port 3003
+
+Payments / refunds
+
+Each service owns its business logic and can be deployed independently.
+
+The gateway decides which service should handle each HTTP request. The client does not need to know the internal service addresses.
+
+## 2. How request routing works
+
+Suppose your application receives these requests:
+
+| User request       | Gateway route               | Destination     |
+| ------------------ | --------------------------- | --------------- |
+| Browse products    | `GET /api/content/products` | Content Service |
+| Create an order    | `POST /api/orders`          | Order Service   |
+| Pay for an order   | `POST /api/payments`        | Payment Service |
+| Check order status | `GET /api/orders/123`       | Order Service   |
+
+The gateway uses the URL path to determine the destination. You do not need a separate public domain for each service.
+
+## 3. Node.js monorepo structure
+
+```
+ecommerce-monorepo/
+├── apps/
+│   ├── api-gateway/
+│   │   └── src/server.ts
+│   ├── content-service/
+│   │   └── src/server.ts
+│   ├── order-service/
+│   │   └── src/server.ts
+│   └── payment-service/
+│       └── src/server.ts
+├── packages/
+│   ├── common/
+│   ├── contracts/
+│   └── logger/
+├── package.json
+├── pnpm-workspace.yaml
+└── docker-compose.yml
+```
+
+All services share one Git repository, but each has its own entry point, port, configuration, and deployment lifecycle.
+
+## 4. Implement the API Gateway
+
+Install the proxy package in the gateway workspace:
+
+```
+pnpm --filter api-gateway add express http-proxy-middleware
+pnpm --filter api-gateway add -D typescript @types/express @types/node
+```
+
+Create `apps/api-gateway/src/server.ts`:
+
+```
+
+import express from "express";
+import { createProxyMiddleware } from "http-proxy-middleware";
+
+const app = express();
+
+const CONTENT_URL =
+  process.env.CONTENT_URL ?? "http://localhost:3001";
+
+const ORDER_URL =
+  process.env.ORDER_URL ?? "http://localhost:3002";
+
+const PAYMENT_URL =
+  process.env.PAYMENT_URL ?? "http://localhost:3003";
+
+// Route requests to the appropriate service.
+app.use(
+  "/api/content",
+  createProxyMiddleware({
+    target: CONTENT_URL,
+    changeOrigin: true,
+  }),
+);
+
+app.use(
+  "/api/orders",
+  createProxyMiddleware({
+    target: ORDER_URL,
+    changeOrigin: true,
+  }),
+);
+
+app.use(
+  "/api/payments",
+  createProxyMiddleware({
+    target: PAYMENT_URL,
+    changeOrigin: true,
+  }),
+);
+
+app.listen(3000, () => {
+  console.log("API Gateway listening on port 3000");
+});
+
+```
+
+With this configuration, the gateway forwards the request to the corresponding service. For example, `/api/content/products` is forwarded as `/products` to the Content Service because Express removes the mounted `/api/content` prefix before the proxy processes the request.
+
+## 5. Create the individual services
+
+For example, `apps/content-service/src/server.ts`:
+
+```
+
+import express from "express";
+
+const app = express();
+app.use(express.json());
+
+app.get("/products", (req, res) => {
+  res.json({
+    service: "content-service",
+    products: [
+      { id: "p101", name: "Laptop" },
+      { id: "p102", name: "Headphones" },
+    ],
+  });
+});
+
+app.listen(3001, () => {
+  console.log("Content Service listening on 3001");
+});
+
+```
+
+Similarly, the Order Service can expose `/` for creating an order and `/:id` for retrieving an order. The Payment Service can expose `/` for initiating a payment and `/:id` for retrieving payment status. In a real implementation, define explicit route handlers and validate the request bodies.
+
+## 6. Test the routing
+
+Start all four applications locally, then send requests through the gateway on port `3000`.
+
+```
+# Content Service
+curl http://localhost:3000/api/content/products
+
+# Order Service
+curl -X POST http://localhost:3000/api/orders \
+  -H "Content-Type: application/json" \
+  -d '{"productId":"p101","quantity":1}'
+
+# Payment Service
+curl -X POST http://localhost:3000/api/payments \
+  -H "Content-Type: application/json" \
+  -d '{"orderId":"ord123","amount":999}'
+```
+
+The last two requests require corresponding POST handlers in your Order and Payment services.
+
+## 7. What happens when Order needs Payment?
+
+There are two different types of routing to consider.
+
+Synchronous request routing
+
+The client calls the API Gateway, which forwards the request to Order or Payment. An Order Service that needs an immediate payment response may call the Payment Service directly over private HTTP.
+
+Asynchronous event communication
+
+Order publishes `OrderCreated` to Kafka. Payment consumes the event, processes payment, and publishes `PaymentSucceeded` or `PaymentFailed`. Order then updates the order status.
+
+For a production e-commerce platform, Kafka is useful when you need asynchronous workflows, retries, and resilience. Payment processing should also use provider webhooks, idempotency keys, and appropriate authorization; a successful order creation must not be treated as a successful payment.
+
+## 8. How this changes in Docker or Kubernetes
+
+The gateway configuration stays the same, but service URLs change depending on the runtime.
+
+| Environment                     | Content Service URL                                                                           |
+| ------------------------------- | --------------------------------------------------------------------------------------------- |
+| Local development               | `http://localhost:3001`                                                                       |
+| Docker Compose                  | `http://content-service:3001`                                                                 |
+| Kubernetes                      | `http://content-service:3001` if the Service is named `content-service` in the same namespace |
+| Kubernetes, different namespace | `http://content-service.target-namespace.svc.cluster.local:3001`                              |
+
+In Docker Compose and Kubernetes, the internal service DNS names allow services to communicate without exposing each service publicly.
+
+My recommendation: Start with one API Gateway and three independently deployable services inside the monorepo. Use path-based routing for client requests, private service-to-service communication for synchronous dependencies, and Kafka for asynchronous business events. This gives you a straightforward development workflow without sacrificing independent scaling or deployment.

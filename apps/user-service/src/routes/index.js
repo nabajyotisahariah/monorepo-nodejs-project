@@ -11,11 +11,11 @@ router.get("/health", (_req, res) => {
   });
 });
 
-router.get("/users", (_req, res) => {
+router.get("/user", (_req, res) => {
   res.json(getAllUsers());
 });
 
-router.get("/users/:id", (req, res) => {
+router.get("/user/:id", (req, res) => {
   const id = Number(req.params.id);
   const user = getUserById(id);
 

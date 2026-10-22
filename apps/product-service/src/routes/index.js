@@ -11,11 +11,11 @@ router.get("/health", (_req, res) => {
   });
 });
 
-router.get("/products", (_req, res) => {
+router.get("/product", (_req, res) => {
   res.json(getAllProducts());
 });
 
-router.get("/products/:id", (req, res) => {
+router.get("/product/:id", (req, res) => {
   const id = Number(req.params.id);
   const product = getProductById(id);
 

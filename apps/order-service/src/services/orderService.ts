@@ -30,8 +30,8 @@ export async function createOrder(
     return { status: "duplicate", existingOrder };
   }
 
-  const userResponse = await fetch(`${userServiceUrl}/users/${userId}`);
-  const productResponse = await fetch(`${productServiceUrl}/products/${productId}`);
+  const userResponse = await fetch(`${userServiceUrl}/user/${userId}`);
+  const productResponse = await fetch(`${productServiceUrl}/product/${productId}`);
 
   if (!userResponse.ok || !productResponse.ok) {
     return { status: "not_found" };
