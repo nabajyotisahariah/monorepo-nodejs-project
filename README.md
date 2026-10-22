@@ -12,7 +12,7 @@ Kubernetes deployment.
 | API Gateway | `82` | Proxies `/api/users`, `/api/products`, `/api/orders` |
 | User | `3001` | `GET /health`, `GET /users`, `GET /users/:id` |
 | Product | `3002` | `GET /health`, `GET /products`, `GET /products/:id` |
-| Order | `3000` | `GET /health`, `GET /orders`, `POST /orders` |
+| Order | `3003` | `GET /health`, `GET /orders`, `POST /orders` |
 
 The user and product services return sample data. Orders are stored in memory
 and are lost when the order service restarts.
@@ -20,7 +20,7 @@ and are lost when the order service restarts.
 ## Prerequisites
 
 - Node.js 22 (the version used by the service Dockerfiles)
-- pnpm 12.4.1 (the version pinned in the root `package.json`)
+- pnpm 10.28.0 (the version pinned in the root `package.json`)
 
 Install dependencies from the repository root:
 
@@ -59,12 +59,14 @@ $ PORT=3001 pnpm start:user
 $ PORT=3002 pnpm start:product
   pnpm --filter product-service start
 
-$ PORT=3000 pnpm start:order
+$ PORT=3003 pnpm start:order
   pnpm --filter order-service start
 ```
 
 The development scripts configure each service's local port and the order
-service's dependency URLs. The order service defaults to
+service's dependency URLs. The API gateway uses nodemon to restart when
+TypeScript files in `apps/api-gateway/src` change. The user, product, and order
+service entry points are also TypeScript files. The order service defaults to
 `http://localhost:3001` for users and `http://localhost:3002` for products.
 
 ## Cross-origin requests
@@ -82,7 +84,7 @@ control.
 Check service health:
 
 ```sh
-curl http://localhost:3000/health
+curl http://localhost:3003/health
 curl http://localhost:3001/health
 curl http://localhost:3002/health
 ```
@@ -97,7 +99,7 @@ curl http://localhost:3002/products
 Create an order:
 
 ```sh
-curl -X POST http://localhost:3000/orders \
+curl -X POST http://localhost:3003/orders \
   -H "Content-Type: application/json" \
   -d "{\"userId\":1,\"productId\":101,\"quantity\":2}"
 ```
@@ -105,7 +107,7 @@ curl -X POST http://localhost:3000/orders \
 The order service retrieves the user and product before calculating the total.
 `quantity` is optional and defaults to `1`. The response contains an `order`
 object with the full `user` and `product` objects in place of their IDs.
-Created orders can be listed at `GET http://localhost:3000/orders`.
+Created orders can be listed at `GET http://localhost:3003/orders`.
 
 API Gateway Endpoints
 ```
@@ -137,8 +139,9 @@ Each service uses the shared `User` and `Product` types from
 data, and the order service uses them when creating orders. The shared
 `Order` entity is also defined there and used by the order service. Service
 logic is written in TypeScript and type-checked by each service's `build`
-script; `tsx` runs the JavaScript Express entry points and TypeScript service
-modules. The shared logger is provided by `@packages/logger`. Workspace
+script. The user, product, and order entry points are TypeScript and run with
+`tsx`; route files remain JavaScript. The shared logger is provided by
+`@packages/logger`. Workspace
 packages are included through the root `pnpm-workspace.yaml`.
 
 ## Docker
@@ -249,6 +252,5 @@ $ docker logs monorepo-nodejs-project-nginx-1
 $ docker logs --tail 20 monorepo-nodejs-project-order-service-1
 [INFO] HTTP GET /health 200
 > order-service@1.0.0 start /app/apps/order-service
-> tsx src/server.js
+> tsx src/server.ts
 ```
-

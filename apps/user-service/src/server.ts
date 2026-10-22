@@ -1,7 +1,7 @@
 import express from "express";
+import type { NextFunction, Request, Response } from "express";
 import { corsMiddleware } from "@packages/config";
 import { logger } from "@packages/logger";
-//import {config} from "@packages/config";
 import { formatDate } from "@packages/logger/formatters";
 import routes from "./routes/index.js";
 
@@ -23,11 +23,11 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(routes);
 
-app.use((error, _req, _res, next) => {
+app.use((error: unknown, _req: Request, _res: Response, next: NextFunction) => {
   logger.error(error instanceof Error ? error.stack ?? error.message : String(error));
   next(error);
 });
 
 app.listen(PORT, () => {
-  logger.info(`Order service running on port ${PORT} Service Start ${formatDate()}`);
+  logger.info(`User service running on port ${PORT} Service Start ${formatDate()}`);
 });
