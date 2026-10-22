@@ -217,8 +217,10 @@ $ curl --location 'http://localhost:82/api/orders/order'
 [{"order":{"id":"1","user":{"id":5,"name":"Liam","address":"56 Maple Street"},"product":{"id":103,"name":"Mouse","price":1200},"quantity":2,"totalAmount":2400,"status":"CREATED"}}]
 
 $ curl --location 'http://localhost:82/api/orders/order' \
+--header 'Content-Type: application/json' \
 --data '{"userId":7,"productId":103,"quantity":2}'
-{"message":"userId and productId must be integers, and quantity must be a positive integer"}
+
+{"message":"An order already exists for this user and product","existingOrder":{"order":{"id":"1","user":{"id":7,"name":"Ava","address":"19 Willow Court"},"product":{"id":103,"name":"Mouse","price":1200},"quantity":2,"totalAmount":2400,"status":"CREATED"}}}
 ```
 
 # Service logs
