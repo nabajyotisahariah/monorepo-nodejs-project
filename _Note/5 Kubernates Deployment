@@ -1,5 +1,35 @@
-### Docker & Artifact
+### GCP Project Creation 
 1. Create a GCP Project 
+
+2. GCP Project list 
+    ```bash
+    $ gcloud projects list
+    PROJECT_ID                  NAME                        PROJECT_NUMBER  ENVIRONMENT
+    weather-project-prod-511603  weather-project-prod        
+    ```
+
+3. Sync gcloud
+    ```bash
+    $ gcloud auth login
+    Your current project is [XYZ Project].  You can change this setting by running:
+    $ gcloud config set project PROJECT_ID
+
+4. Set your project:
+    ```bash
+    $ gcloud config set project weather-project-prod-51160
+    ```
+5. Verify:
+    ```bash
+    $ gcloud config get-value project
+    weather-project-prod-51160
+    ```
+5. Delete a project (Only for reference, don't use it)
+  ```bash
+  gcloud projects delete weather-project-prod-51160
+  ```
+
+### Docker & Artifact
+1. Install docker 
 
 2. Configure Docker authentication
    $ gcloud auth configure-docker asia-south2-docker.pkg.dev
@@ -37,20 +67,13 @@
     
 4. Build the Node.js image from indivisual repo
 
-    Ref [5 Monrepo, Packages & Docker Dependency] file
+    docker build -f apps/order-service/Dockerfile -t order-service:1.0 .
+    docker build -f apps/user-service/Dockerfile -t user-service:1.0 .
+    docker build -f apps/product-service/Dockerfile -t product-service:1.0 .
 
-    # docker build -f apps/order-service/Dockerfile -t order-service:1.0 .
-    # docker build --no-cache -f apps/order-service/Dockerfile -t order-service:1.0 .
-    # docker run --rm -p 3000:3000 order-service:1.0
-
-    # docker build -f apps/user-service/Dockerfile -t user-service:1.0 .
-    # docker build --no-cache -f apps/user-service/Dockerfile -t user-service:1.0 .
-    # docker run --rm -p 3001:3000 user-service:1.0
-
-
-    # docker build -f apps/product-service/Dockerfile -t product-service:1.0 .
-    # docker build --no-cache -f apps/product-service/Dockerfile -t product-service:1.0 .
-    # docker run --rm -p 3002:3000 product-service:1.0
+    Ref
+    docker build --no-cache -f apps/product-service/Dockerfile -t product-service:1.0 .
+    docker run --rm -p 3002:3000 product-service:1.0
                                                                                                      0.0s
    $ docker images                                                                                                                                  i Info →   U  In Use
       IMAGE                 ID             DISK USAGE   CONTENT SIZE   EXTRA
@@ -152,41 +175,33 @@ gk3-k8s-cluster-nap-5pabsr18-922950c1-5tmq   Ready    <none>   22s   v1.36.4-gke
 gk3-k8s-cluster-nap-5pabsr18-c9bb0d71-bgrb   Ready    <none>   20s   v1.36.4-gke.1495002
 gk3-k8s-cluster-nap-5pabsr18-e398ba89-287s   Ready    <none>   63s   v1.36.4-gke.1495002
 
-$ kubectl get pods
-NAME                               READY   STATUS    RESTARTS   AGE
-order-service-87fdd54f8-bp44j      1/1     Running   0          114s
-order-service-87fdd54f8-bv7r7      1/1     Running   0          114s
-product-service-64bcc8bd7c-42xdg   1/1     Running   0          114s
-product-service-64bcc8bd7c-r9ngv   1/1     Running   0          114s
-user-service-898fc855f-sjvvd       1/1     Running   0          113s
-user-service-898fc855f-w5mt6       1/1     Running   0          113s
-
 # removing a pod
 $ kubectl delete pod order-service-69c85c4b97-jtqtb
 
-# Pods health
-$ kubectl describe pod order-service-69c85c4b97-2qd7f
-Name:             order-service-69c85c4b97-2qd7f
-Namespace:        default
-
-
-$ kubectl get svc
-NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
-kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   10m
-order-service     ClusterIP   34.118.227.35    <none>        80/TCP    3m10s
-product-service   ClusterIP   34.118.239.90    <none>        80/TCP    3m9s
-user-service      ClusterIP   34.118.230.181   <none>        80/TCP    3m9s
+$ kubectl get ingress
+NAME                CLASS    HOSTS   ADDRESS         PORTS   AGE
+ecommerce-ingress   <none>   *       136.68.120.27   80      11m
 
 $ kubectl get svc
 NAME              TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)        AGE
-kubernetes        ClusterIP      34.118.224.1     <none>           443/TCP        41m
-order-service     LoadBalancer   34.118.226.106   34.131.155.191   80:30764/TCP   2m8s
-product-service   LoadBalancer   34.118.238.200   34.131.86.243    80:31420/TCP   2m8s
-user-service      LoadBalancer   34.118.234.124   34.131.189.227   80:31269/TCP   2m8s
+kubernetes        ClusterIP      34.118.224.1     <none>           443/TCP        22h
+order-service     LoadBalancer   34.118.225.168   34.131.9.100     80:30644/TCP   11m
+product-service   LoadBalancer   34.118.226.77    34.131.181.186   80:30337/TCP   11m
+user-service      LoadBalancer   34.118.229.248   34.131.184.68    80:30197/TCP   11m
 
-$ kubectl get ingress
-NAME                CLASS    HOSTS   ADDRESS   PORTS   AGE
-ecommerce-ingress   <none>   *                 80      34s
+$ kubectl get pods
+NAME                               READY   STATUS    RESTARTS   AGE
+order-service-87fdd54f8-6mkzv      1/1     Running   0          14m
+order-service-87fdd54f8-tl266      1/1     Running   0          14m
+product-service-64bcc8bd7c-4lm5n   1/1     Running   0          14m
+product-service-64bcc8bd7c-nj6pv   1/1     Running   0          14m
+user-service-898fc855f-gn45h       1/1     Running   0          14m
+user-service-898fc855f-whsgf       1/1     Running   0          14m
+
+$ kubectl logs user-service-898fc855f-gn45h|more
+$ tsx src/server.js
+[INFO] User service running on port 3000 Service Start 22/10/2026, 16:31:42
+[INFO] HTTP GET /health 200
 
 $  kubectl run test-client1 --rm -it --image=curlimages/curl -- sh
 ~ $ curl http://product-service:80/products
@@ -201,11 +216,13 @@ $  kubectl run test-client1 --rm -it --image=curlimages/curl -- sh
 [{"order":{"id":"1","user":{"id":4,"name":"Olivia","address":"24 Cedar Lane"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}]
 
 
-$ kubectl exec -it product-service-64bcc8bd7c-42xdg -- sh
-/app/apps/product-service # wget -qO- http://localhost:3000/products
-[{"id":101,"name":"Laptop","price":75000},
-{"id":102,"name":"Keyboard","price":3000},
-{"id":103,"name":"Mouse","price":1200}]
+$ kubectl exec -it product-service-64bcc8bd7c-7gf88 -- sh
+/app/apps/product-service #  wget -qO- http://localhost:3000/product
+[{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
+
+$ kubectl exec -it user-service-898fc855f-kjm8m -- sh
+/app/apps/user-service # wget -qO- http://localhost:3000/user
+[{"id":1,"name":"John","address":"123 Main St"},{"id":2,"name":"David","address":"456 Oak Ave"}]
 
 ### Pods health
 $ kubectl describe pod order-service-dc778f5c4-5gt9j
@@ -227,4 +244,127 @@ Containers:
     Mounts:
       /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-lfv2q (ro)
 
-$ kubectl describe ingress ingressId
+$ kubectl describe ingress ecommerce-ingress
+Name:             ecommerce-ingress
+Labels:           app.kubernetes.io/managed-by=Helm
+Namespace:        default
+Address:          
+Ingress Class:    <none>
+Default backend:  <default>
+Rules:
+  Host        Path  Backends
+  ----        ----  --------
+  *           
+              /users      user-service:80 (10.80.0.11:3000,10.80.0.10:3000)
+              /products   product-service:80 (10.80.0.4:3000,10.80.0.3:3000)
+              /orders     order-service:80 (10.80.0.8:3000,10.80.0.9:3000)
+Annotations:  meta.helm.sh/release-name: microservices1.1
+              meta.helm.sh/release-namespace: default
+Events:
+  Type    Reason  Age                  From                     Message
+  ----    ------  ----                 ----                     -------
+  Normal  Sync    84s (x3 over 3m33s)  loadbalancer-controller  Scheduled for sync
+
+
+
+-
+$ kubectl edit ingress ecommerce-ingress  
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    meta.helm.sh/release-name: microservices1.1
+    meta.helm.sh/release-namespace: default
+  creationTimestamp: "2026-10-22T16:30:29Z"
+  finalizers:
+  - networking.gke.io/ingress-finalizer-V2
+  generation: 1
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: ecommerce-ingress
+  namespace: default
+  resourceVersion: "1792686629102511023"
+  uid: 196d8be2-3769-4bff-8e5a-435b0f9df50a
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: user-service
+            port:
+              number: 80
+        path: /users
+        pathType: Prefix
+      - backend:
+          service:
+            name: product-service
+            port:
+              number: 80
+        path: /products
+        pathType: Prefix
+      - backend:
+          service:
+            name: order-service
+            port:
+              number: 80
+        path: /orders
+        pathType: Prefix
+status:
+  loadBalancer: {}
+
+
+$ kubectl edit pod order-service-87fdd54f8-6mkzv
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2026-10-22T16:30:29Z"
+  generateName: order-service-87fdd54f8-
+  generation: 1
+  labels:
+    app: order-service
+    pod-template-hash: 87fdd54f8
+    topology.kubernetes.io/region: asia-south2
+    topology.kubernetes.io/zone: asia-south2-c
+  name: order-service-87fdd54f8-6mkzv
+  namespace: default
+  ownerReferences:
+  - apiVersion: apps/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: ReplicaSet
+    name: order-service-87fdd54f8
+    uid: e2b8e404-e01e-40a2-932c-73055cac682b
+  resourceVersion: "1792686710259135012"
+  uid: 7fa472e6-ce5f-4b2f-92e3-0598a2cbd759
+spec:
+  containers:
+  - env:
+    - name: ORDER_SERVICE_URL
+      value: http://order-service:80
+    - name: PRODUCT_SERVICE_URL
+      value: http://product-service:80
+    - name: USER_SERVICE_URL
+      value: http://user-service:80
+    image: asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0
+    imagePullPolicy: IfNotPresent
+    livenessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /health
+        port: 3000
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 20
+      successThreshold: 1
+      timeoutSeconds: 1
+    name: order-service
+    ports:
+    - containerPort: 3000
+      name: http
+      protocol: TCP
+    readinessProbe:
+
+

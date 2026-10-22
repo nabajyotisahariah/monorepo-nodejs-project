@@ -106,7 +106,7 @@ curl -X POST http://localhost:3003/order \
   -d "{\"userId\":1,\"productId\":101,\"quantity\":2}"
 ```
 
-The gateway can be used in place of the direct order-service URL:
+The API gateway can be used in place of the direct order-service URL:
 
 ```sh
 curl -X POST http://localhost:82/api/orders/order \

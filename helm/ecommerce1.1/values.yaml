@@ -1,8 +1,8 @@
 #Ref
 #Docker image:
-# order   : asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0
-# product : asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/product-service:2.0
-# user    : asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/user-service:2.0
+# order   : asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0
+# product : asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0
+# user    : asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0
 
 # helm lint ./helm/ecommerce1.1/
 # $ helm list
@@ -89,8 +89,8 @@ services:
 
 
 service:
-  #type: ClusterIP      #For Ingress load Balancing
-  type: LoadBalancer    #For without Ingress load Balancing
+  type: ClusterIP      #For Ingress load Balancing
+  #type: LoadBalancer    #For without Ingress load Balancing
   port: 80
 
 
