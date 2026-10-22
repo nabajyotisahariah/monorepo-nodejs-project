@@ -3,6 +3,7 @@
 
 # # Recreate containers with the updated configuration
 # docker compose --env-file .env -f docker-compose-env.yml up --build
+# docker compose --env-file .env -f docker-compose-env.yml up --build --force-recreate
 
 # # Verify environment variables inside a service
 # $ docker compose -f docker-compose-env.yml exec order-service printenv USER_SERVICE_URL
@@ -52,6 +53,12 @@ services:
         condition: service_healthy
       order-service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     restart: unless-stopped
 
   user-service:
@@ -63,6 +70,12 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: ${USER_SERVICE_PORT:-3000}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
 
   product-service:
@@ -74,6 +87,12 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: ${PRODUCT_SERVICE_PORT:-3000}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
 
   order-service:
@@ -87,4 +106,10 @@ services:
       PORT: ${ORDER_SERVICE_PORT:-3000}
       USER_SERVICE_URL: ${USER_SERVICE_URL:?Set USER_SERVICE_URL in .env}
       PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL:?Set PRODUCT_SERVICE_URL in .env}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
