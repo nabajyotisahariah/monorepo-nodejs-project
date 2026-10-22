@@ -1,0 +1,90 @@
+# # Check the resolved Compose configuration
+# docker compose config
+
+# # Recreate containers with the updated configuration
+# docker compose --env-file .env -f docker-compose-env.yml up --build
+
+# # Verify environment variables inside a service
+# $ docker compose -f docker-compose-env.yml exec order-service printenv USER_SERVICE_URL
+# http://user-service:3000
+
+# $ docker compose -f docker-compose-env.yml ps
+# NAME                                        IMAGE                                     COMMAND                  SERVICE           CREATED         STATUS         PORTS
+# monorepo-nodejs-project-order-service-1     monorepo-nodejs-project-order-service     "docker-entrypoint.s…"   order-service     3 minutes ago   Up 3 minutes   3000/tcp
+# monorepo-nodejs-project-product-service-1   monorepo-nodejs-project-product-service   "docker-entrypoint.s…"   product-service   3 minutes ago   Up 3 minutes   3000/tcp
+# monorepo-nodejs-project-user-service-1      monorepo-nodejs-project-user-service      "docker-entrypoint.s…"   user-service      3 minutes ago   Up 3 minutes   3000/tcp
+
+# 4. Verify that Docker Compose reads .env
+# $ docker compose --env-file .env -f docker-compose-env.yml config
+# name: monorepo-nodejs-project
+# services:
+#   nginx:
+#     environment:
+#       NGINX_ENVSUBST_FILTER: ^(USER_SERVICE_URL|PRODUCT_SERVICE_URL|ORDER_SERVICE_URL)$$
+#       ORDER_SERVICE_URL: http://order-service:3000
+#       PRODUCT_SERVICE_URL: http://product-service:3000
+#       USER_SERVICE_URL: http://user-service:3000
+#     image: nginx:alpine
+#     networks:
+#       default: null
+
+# $ docker compose -f docker-compose-env.yml exec user-service node -e "fetch('http://127.0.0.1:3000/health').then(async r => console.log(r.status, await r.text())).catch(console.error)"
+# 200 {"service":"user-service","status":"UP"}
+
+
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "82:80"
+    environment:
+      USER_SERVICE_URL: ${USER_SERVICE_URL:?Set USER_SERVICE_URL in .env}
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL:?Set PRODUCT_SERVICE_URL in .env}
+      ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:?Set ORDER_SERVICE_URL in .env}
+      NGINX_ENVSUBST_FILTER: "^(USER_SERVICE_URL|PRODUCT_SERVICE_URL|ORDER_SERVICE_URL)$"
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: .
+      dockerfile: apps/user-service/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${USER_SERVICE_PORT:-3000}
+    restart: unless-stopped
+
+  product-service:
+    build:
+      context: .
+      dockerfile: apps/product-service/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PRODUCT_SERVICE_PORT:-3000}
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: .
+      dockerfile: apps/order-service/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${ORDER_SERVICE_PORT:-3000}
+      USER_SERVICE_URL: ${USER_SERVICE_URL:?Set USER_SERVICE_URL in .env}
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL:?Set PRODUCT_SERVICE_URL in .env}
+    restart: unless-stopped

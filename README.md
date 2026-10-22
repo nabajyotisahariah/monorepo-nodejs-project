@@ -164,6 +164,31 @@ Remove the release with:
 helm uninstall ecommerce
 ```
 
+### Service Test using Docker
+```
+$ docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -X POST -H 'Content-Type: application/json' -d '{\"userId\":5,\"productId\":103,\"quantity\":2}' http://order-service:3000/order"
+                          0
+{
+	"message":"An order already exists for this user and product",
+	"existingOrder":{
+		"order":{"id":"1","user":{"id":5,"name":"Liam","address":"56 Maple Street"},"product":{"id":103,"name":"Mouse","price":1200},"quantity":2,"totalAmount":2400,"status":"CREATED"}
+	}
+}
+
+$ docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -H 'Content-Type: application/json' http://order-service:3000/order"
+
+{"id":"1","user":{"id":7,"name":"Ava","address":"19 Willow Court"}]
+
+$  docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -H 'Content-Type: application/json' http://product-service:3000/product"
+
+[{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
+
+$  docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -H 'Content-Type: application/json' http://user-service:3000/user"
+
+ [{"id":1,"name":"John","address":"123 Main St"},{"id":2,"name":"David","address":"456 Oak Ave"}]
+```
+
+
 ## Root scripts
 
 The root `package.json` provides these workspace commands:
