@@ -179,104 +179,82 @@ gk3-k8s-cluster-nap-5pabsr18-e398ba89-287s   Ready    <none>   63s   v1.36.4-gke
 $ kubectl delete pod order-service-69c85c4b97-jtqtb
 
 $ kubectl get ingress
-NAME                CLASS    HOSTS   ADDRESS         PORTS   AGE
-ecommerce-ingress   <none>   *       136.68.120.27   80      11m
+NAME                CLASS    HOSTS   ADDRESS          PORTS   AGE
+ecommerce-ingress   <none>   *       136.68.181.136   80      9m17s
 
 $ kubectl get svc
-NAME              TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)        AGE
-kubernetes        ClusterIP      34.118.224.1     <none>           443/TCP        22h
-order-service     LoadBalancer   34.118.225.168   34.131.9.100     80:30644/TCP   11m
-product-service   LoadBalancer   34.118.226.77    34.131.181.186   80:30337/TCP   11m
-user-service      LoadBalancer   34.118.229.248   34.131.184.68    80:30197/TCP   11m
+NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   23h
+order-service     ClusterIP   34.118.236.139   <none>        80/TCP    9m22s
+product-service   ClusterIP   34.118.232.120   <none>        80/TCP    9m22s
+user-service      ClusterIP   34.118.232.157   <none>        80/TCP    9m22s
 
 $ kubectl get pods
 NAME                               READY   STATUS    RESTARTS   AGE
-order-service-87fdd54f8-6mkzv      1/1     Running   0          14m
-order-service-87fdd54f8-tl266      1/1     Running   0          14m
-product-service-64bcc8bd7c-4lm5n   1/1     Running   0          14m
-product-service-64bcc8bd7c-nj6pv   1/1     Running   0          14m
-user-service-898fc855f-gn45h       1/1     Running   0          14m
-user-service-898fc855f-whsgf       1/1     Running   0          14m
+order-service-87fdd54f8-45fws      1/1     Running   0          9m27s
+order-service-87fdd54f8-nfk99      1/1     Running   0          9m27s
+product-service-64bcc8bd7c-4qwfv   1/1     Running   0          9m27s
+product-service-64bcc8bd7c-zf88s   1/1     Running   0          9m23s
+user-service-898fc855f-8qppf       1/1     Running   0          9m27s
+user-service-898fc855f-brqfc       1/1     Running   0          9m27s
+
 
 $ kubectl logs user-service-898fc855f-gn45h|more
 $ tsx src/server.js
 [INFO] User service running on port 3000 Service Start 22/10/2026, 16:31:42
 [INFO] HTTP GET /health 200
 
-$  kubectl run test-client1 --rm -it --image=curlimages/curl -- sh
-~ $ curl http://product-service:80/products
-[{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
-~ $ curl http://user-service:80/users
-[{"id":1,"name":"John"},{"id":2,"name":"David"}]~
-~ $ curl --location 'http://order-service:80/orders' \
-> --header 'Content-Type: application/json' \
-> --data '{"userId":4,"productId":104,"quantity":2}'
-{"order":{"id":"1","user":{"id":4,"name":"Olivia","address":"24 Cedar Lane"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}
- $ curl --location 'http://order-service:80/orders'
-[{"order":{"id":"1","user":{"id":4,"name":"Olivia","address":"24 Cedar Lane"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}]
+$ kubectl run test-client1 --rm -it --image=curlimages/curl -- sh
+  ~ $ curl http://product-service:80/product
+  [{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000},{"id":103,"name":"Mouse","price":1200}]
+
+  ~ $ curl http://user-service:80/user
+  [{"id":1,"name":"John"},{"id":2,"name":"David"}]
+
+  ~ $ curl --location 'http://order-service:80/order' --header 'Content-Type: application/json'  --data '{"userId":4,"productId":104,"quantity":2}'
+  {"order":{"id":"1","user":{"id":4,"name":"Olivia","address":"24 Cedar Lane"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}~ $ 
 
 
 $ kubectl exec -it product-service-64bcc8bd7c-7gf88 -- sh
-/app/apps/product-service #  wget -qO- http://localhost:3000/product
-[{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
+  /app/apps/product-service #  wget -qO- http://localhost:3000/product
+  [{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
 
 $ kubectl exec -it user-service-898fc855f-kjm8m -- sh
-/app/apps/user-service # wget -qO- http://localhost:3000/user
-[{"id":1,"name":"John","address":"123 Main St"},{"id":2,"name":"David","address":"456 Oak Ave"}]
+  /app/apps/user-service # wget -qO- http://localhost:3000/user
+  [{"id":1,"name":"John","address":"123 Main St"},{"id":2,"name":"David","address":"456 Oak Ave"}]
 
 ### Pods health
-$ kubectl describe pod order-service-dc778f5c4-5gt9j
-Name:             order-service-dc778f5c4-5gt9j
-Namespace:        default
-Priority:         0
-Service Account:  default
-Node:             gk3-k8s-cluster-nap-5pabsr18-e398ba89-287s/10.190.0.3
-Containers:
-  order-service:
-    Container ID:   
-    Image:          asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:2.0
-    Image ID:       
-    Port:           3000/TCP (http)
-    Environment:
-      ORDER_SERVICE_URL:    http://order-service:80
-      PRODUCT_SERVICE_URL:  http://product-service:80
-      USER_SERVICE_URL:     http://user-service:80
-    Mounts:
-      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-lfv2q (ro)
-
 $ kubectl describe ingress ecommerce-ingress
 Name:             ecommerce-ingress
 Labels:           app.kubernetes.io/managed-by=Helm
 Namespace:        default
-Address:          
+Address:          136.68.181.136
 Ingress Class:    <none>
 Default backend:  <default>
 Rules:
   Host        Path  Backends
   ----        ----  --------
   *           
-              /users      user-service:80 (10.80.0.11:3000,10.80.0.10:3000)
-              /products   product-service:80 (10.80.0.4:3000,10.80.0.3:3000)
-              /orders     order-service:80 (10.80.0.8:3000,10.80.0.9:3000)
-Annotations:  meta.helm.sh/release-name: microservices1.1
-              meta.helm.sh/release-namespace: default
-Events:
-  Type    Reason  Age                  From                     Message
-  ----    ------  ----                 ----                     -------
-  Normal  Sync    84s (x3 over 3m33s)  loadbalancer-controller  Scheduled for sync
+              /users      user-service:80 (10.80.1.8:3000,10.80.1.10:3000)
+              /products   product-service:80 (10.80.1.9:3000,10.80.1.12:3000)
+              /orders     order-service:80 (10.80.1.7:3000,10.80.1.13:3000)
 
-
-
--
-$ kubectl edit ingress ecommerce-ingress  
-
+########################
+$ kubectl edit ingress ecommerce-ingres
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
+    ingress.kubernetes.io/forwarding-rule: k8s2-fr-e9moa925-default-ecommerce-ingress-nqsbcfx2
+    ingress.kubernetes.io/target-proxy: k8s2-tp-e9moa925-default-ecommerce-ingress-nqsbcfx2
+    ingress.kubernetes.io/url-map: k8s2-um-e9moa925-default-ecommerce-ingress-nqsbcfx2
     meta.helm.sh/release-name: microservices1.1
     meta.helm.sh/release-namespace: default
-  creationTimestamp: "2026-10-22T16:30:29Z"
+  creationTimestamp: "2026-10-22T17:46:52Z"
   finalizers:
   - networking.gke.io/ingress-finalizer-V2
   generation: 1
@@ -284,8 +262,8 @@ metadata:
     app.kubernetes.io/managed-by: Helm
   name: ecommerce-ingress
   namespace: default
-  resourceVersion: "1792686629102511023"
-  uid: 196d8be2-3769-4bff-8e5a-435b0f9df50a
+  resourceVersion: "1792691741435007023"
+  uid: 64bab965-a0d1-4f07-825a-e53f44ced84d
 spec:
   rules:
   - http:
@@ -312,23 +290,29 @@ spec:
         path: /orders
         pathType: Prefix
 status:
-  loadBalancer: {}
+  loadBalancer:
+    ingress:
+    - ip: 136.68.181.136
 
-
+##################
 $ kubectl edit pod order-service-87fdd54f8-6mkzv
 
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
 apiVersion: v1
 kind: Pod
 metadata:
-  creationTimestamp: "2026-10-22T16:30:29Z"
+  creationTimestamp: "2026-10-22T17:46:53Z"
   generateName: order-service-87fdd54f8-
   generation: 1
   labels:
     app: order-service
     pod-template-hash: 87fdd54f8
     topology.kubernetes.io/region: asia-south2
-    topology.kubernetes.io/zone: asia-south2-c
-  name: order-service-87fdd54f8-6mkzv
+    topology.kubernetes.io/zone: asia-south2-b
+  name: order-service-87fdd54f8-45fws
   namespace: default
   ownerReferences:
   - apiVersion: apps/v1
@@ -336,10 +320,10 @@ metadata:
     controller: true
     kind: ReplicaSet
     name: order-service-87fdd54f8
-    uid: e2b8e404-e01e-40a2-932c-73055cac682b
-  resourceVersion: "1792686710259135012"
-  uid: 7fa472e6-ce5f-4b2f-92e3-0598a2cbd759
-spec:
+    uid: 00987841-7c6e-483e-acf3-27dafcb1e83b
+  resourceVersion: "1792691502890559012"
+  uid: 863047a0-15e4-4744-9f4d-7762622c111e
+  spec:
   containers:
   - env:
     - name: ORDER_SERVICE_URL
@@ -366,5 +350,5 @@ spec:
       name: http
       protocol: TCP
     readinessProbe:
-
+      failureThreshold: 3
 

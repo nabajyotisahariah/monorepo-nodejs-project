@@ -1,0 +1,174 @@
+I recommend updating your Helm chart so your GKE deployment reproduces the routing behavior of your Nginx configuration:
+
+- `/api/users/user` → User Service receives `/user`
+- `/api/products/product` → Product Service receives `/product`
+- `/api/orders/order` → Order Service receives `/order`
+- Internal microservice calls continue using Kubernetes DNS, such as `http://product-service:80`.
+- Each microservice uses `ClusterIP`; the external entry point handles incoming traffic.
+
+The key change is to support URL prefix rewriting. Your current `ingress.yaml` routes requests but does not rewrite their paths. Because you're using GKE's Ingress API (`networking.k8s.io/v1`), I recommend using a GKE Gateway API `HTTPRoute` for native prefix rewriting, or keeping a separate NGINX Ingress Controller if you specifically want Nginx behavior.
+
+I'll show the minimal changes to your existing Helm chart first, then explain the routing-controller choice.
+
+## 1. Update `values.yaml`
+
+Change your Ingress paths to the API prefixes and add Gateway configuration.
+
+```
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: ""
+
+  # Used by the HTTPRoute template below.
+  gatewayName: ecommerce-gateway
+
+  paths:
+    - path: /api/users/
+      service: user-service
+      rewritePrefix: /
+
+    - path: /api/products/
+      service: product-service
+      rewritePrefix: /
+
+    - path: /api/orders/
+      service: order-service
+      rewritePrefix: /
+```
+
+Your existing `services`, image versions, resource requests, and health probes can remain unchanged.
+
+These values define the desired routing, but the current Kubernetes Ingress template will not apply `rewritePrefix`. We'll replace that template with an `HTTPRoute` template.
+
+## 2. Replace `templates/ingress.yaml`
+
+Because you want the Nginx-style prefix stripping on GKE, use the Gateway API `HTTPRoute` resource.
+
+```
+
+{{- if .Values.ingress.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ecommerce-route
+spec:
+  parentRefs:
+    - name: {{ .Values.ingress.gatewayName }}
+  rules:
+    {{- range .Values.ingress.paths }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .path | quote }}
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: {{ .rewritePrefix | quote }}
+      backendRefs:
+        - name: {{ .service }}
+          port: {{ $.Values.service.port }}
+    {{- end }}
+{{- end }}
+
+```
+
+This template assumes that a compatible Gateway named `ecommerce-gateway` already exists in the same namespace. The Gateway must be configured with a supported GKE GatewayClass and an appropriate listener. Your current Ingress resource does not establish that prerequisite.
+
+### Expected routing
+
+Incoming request
+
+`/api/products/product`
+
+HTTPRoute rewrites the prefix
+
+`/api/products/` → `/`
+
+Backend request
+
+`http://product-service:80/product`
+
+This is the intended behavior of your original Nginx configuration. The same rule applies to users and orders.
+
+## 3. Check your Service template
+
+Your existing `templates/service.yaml` is already appropriate for internal service discovery:
+
+```
+spec:
+  type: {{ $.Values.service.type }}
+  selector:
+    app: {{ $service.name }}
+  ports:
+    - name: http
+      protocol: TCP
+      port: {{ $.Values.service.port }}
+      targetPort: {{ $service.port }}
+```
+
+With `service.type: ClusterIP`, the routing is:
+
+```
+Gateway → product-service:80 → Product Pod:3000
+```
+
+Your environment variables can remain:
+
+```
+env:
+  ORDER_SERVICE_URL: http://order-service:80
+  USER_SERVICE_URL: http://user-service:80
+  PRODUCT_SERVICE_URL: http://product-service:80
+```
+
+These internal URLs do not need the public `/api/...` prefixes.
+
+## 4. Deploy and validate
+
+First check whether Gateway API is available and whether you already have a Gateway:
+
+```
+kubectl get gatewayclass
+kubectl get gateway -A
+kubectl get httproute -A
+```
+
+If you don't have a Gateway, you must configure one with a supported GKE GatewayClass before applying the new route. Do not remove your existing Ingress until the new Gateway has a working address and the routes have been tested.
+
+Then validate your chart:
+
+```
+helm lint ./helm/ecommerce1.1/
+
+helm template microservices1.1 ./helm/ecommerce1.1/ \
+  -n default
+```
+
+After you have configured the Gateway and reviewed the rendered resources, apply the changes:
+
+```
+helm upgrade microservices1.1 ./helm/ecommerce1.1/ \
+  -n default
+
+kubectl get httproute
+kubectl describe httproute ecommerce-route
+kubectl get gateway ecommerce-gateway
+```
+
+Test the actual endpoint after the Gateway reports that it is programmed and has an address:
+
+```
+curl -i http://YOUR_GATEWAY_IP/api/products/product
+curl -i http://YOUR_GATEWAY_IP/api/users/user
+curl -i http://YOUR_GATEWAY_IP/api/orders/order
+```
+
+Replace `YOUR_GATEWAY_IP` with the address reported by your Gateway.
+
+My recommendation: if you want to keep your current GKE Ingress without introducing Gateway API, change the paths to `/api/users`, `/api/products`, and `/api/orders`, but update your Node.js services to accept those full paths. If the services must receive stripped paths exactly as in Nginx, use Gateway API rewriting or a dedicated NGINX Ingress Controller.

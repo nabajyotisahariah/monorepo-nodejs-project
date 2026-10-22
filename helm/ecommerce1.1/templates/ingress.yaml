@@ -1,32 +1,25 @@
 {{- if .Values.ingress.enabled }}
-
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
 metadata:
-  name: ecommerce-ingress
-
+  name: ecommerce-route
 spec:
-
-  {{- if .Values.ingress.className }}
-  ingressClassName: {{ .Values.ingress.className }}
-  {{- end }}
-
+  parentRefs:
+    - name: {{ .Values.ingress.gatewayName }}
   rules:
-    - http:
-        paths:
-
-          {{- range .Values.ingress.paths }}
-
-          - path: {{ .path }}
-            pathType: Prefix
-
-            backend:
-              service:
-                name: {{ .service }}
-                port:
-                  number: {{ $.Values.service.port }}
-
-          {{- end }}
-
+    {{- range .Values.ingress.paths }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .path | quote }}
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: {{ .rewritePrefix | quote }}
+      backendRefs:
+        - name: {{ .service }}
+          port: {{ $.Values.service.port }}
+    {{- end }}
 {{- end }}
