@@ -32,7 +32,8 @@
 # $ docker compose -f docker-compose-env.yml exec user-service node -e "fetch('http://127.0.0.1:3000/health').then(async r => console.log(r.status, await r.text())).catch(console.error)"
 # 200 {"service":"user-service","status":"UP"}
 
-
+# Note; all the env variables will be will be pulled from secret manager or vault in production 
+#       instead of hardcoding them in the docker-compose file.
 
 services:
   nginx:
