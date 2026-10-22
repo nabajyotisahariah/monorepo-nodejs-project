@@ -20,7 +20,7 @@ router.get("/order", (_req, res) => {
 
 router.post("/order", async (req, res) => {
   try {
-    const { userId, productId, quantity = 1 } = req.body;
+    const { userId, productId, quantity = 1 } = req.body || {};
 
     logger.info("Order creation requested");
 

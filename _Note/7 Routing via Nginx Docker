@@ -237,3 +237,5 @@ docker compose ps
 
 # Inspect service logs if anything fails
 docker compose logs --tail=100 user-service product-service order-service nginx
+
+================================

@@ -168,3 +168,48 @@ helm uninstall ecommerce
 The root `package.json` also defines recursive `build`, `lint`, `test`, and
 `start` scripts. Individual services currently provide placeholder build and
 test scripts; no service test suite is configured yet.
+
+
+### Running the application using docker compose 
+# Build
+$ docker-compose up -d --build
+#2 [product-service internal] load build definition from Dockerfile
+#3 [order-service internal] load build definition from Dockerfile
+#4 [user-service internal] load build definition from Dockerfile
+#4 transferring dockerfile: 658B 0.0s done
+#4 DONE 0.0s
+
+# Service Test
+$ docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -X POST -H 'Content-Type: application/json' -d '{\"userId\":5,\"productId\":103,\"quantity\":2}' http://order-service:3000/order"
+                          0
+{
+	"message":"An order already exists for this user and product",
+	"existingOrder":{
+		"order":{"id":"1","user":{"id":5,"name":"Liam","address":"56 Maple Street"},"product":{"id":103,"name":"Mouse","price":1200},"quantity":2,"totalAmount":2400,"status":"CREATED"}
+	}
+}
+
+# Service logs
+$ docker logs monorepo-nodejs-project-nginx-1
+192.168.143.2 - - [22/Oct/2026:06:48:23 +0000] "GET /api/products/product HTTP/1.1" 404 159 "-" "PostmanRuntime/2.12.0"
+192.168.143.2 - - [22/Oct/2026:06:48:42 +0000] "GET /api/products/product HTTP/1.1" 404 159 "-" "PostmanRuntime/2.12.0"
+
+ 
+$ docker logs --tail 20 monorepo-nodejs-project-order-service-1
+[INFO] HTTP GET /health 200
+> order-service@1.0.0 start /app/apps/order-service
+> tsx src/server.js
+
+$ curl --location 'http://localhost:82/api/products/product'
+[{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
+
+$ curl --location 'http://localhost:82/api/users/user'
+[{"id":1,"name":"John","address":"123 Main St"},{"id":2,"name":"David","address":"456 Oak Ave"}]
+
+$ curl --location 'http://localhost:82/api/orders/order'
+[{"order":{"id":"1","user":{"id":5,"name":"Liam","address":"56 Maple Street"},"product":{"id":103,"name":"Mouse","price":1200},"quantity":2,"totalAmount":2400,"status":"CREATED"}}]
+
+$ curl --location 'http://localhost:82/api/orders/order' \
+--data '{"userId":7,"productId":103,"quantity":2}'
+{"message":"userId and productId must be integers, and quantity must be a positive integer"}
+
