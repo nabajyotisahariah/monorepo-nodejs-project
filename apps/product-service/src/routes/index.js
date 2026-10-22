@@ -1,6 +1,6 @@
 import express from "express";
 import { logger } from "@packages/logger";
-import { getAllProducts, getProductById } from "../services/productService.ts";
+import { getAllProducts, getProductById } from "../services/productService.js";
 
 const router = express.Router();
 

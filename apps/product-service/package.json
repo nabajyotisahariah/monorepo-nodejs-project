@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "set \"PORT=3002\" && tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
-    "build": "tsc --noEmit",
+    "start": "node dist/server.js",
+    "build": "tsc",
     "lint": "eslint . --ext .js",
     "test": "echo 'No tests defined for this service.'"
   },

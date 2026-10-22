@@ -15,14 +15,16 @@ COPY apps/product-service/package.json ./apps/product-service/package.json
 COPY packages ./packages
 
 # Install dependencies for product-service
-RUN pnpm install --filter product-service --prod
+RUN pnpm install --filter product-service...
 
 # Copy product-service source
 COPY apps/product-service ./apps/product-service
+
+# Compile TypeScript to JavaScript
+RUN pnpm --filter product-service build
 
 WORKDIR /app/apps/product-service
 
 EXPOSE 3000
 
 CMD ["pnpm", "start"]
-

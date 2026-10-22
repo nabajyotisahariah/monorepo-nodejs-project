@@ -15,10 +15,13 @@ COPY apps/order-service/package.json ./apps/order-service/package.json
 COPY packages ./packages
 
 # Install order-service dependencies
-RUN pnpm install --filter order-service --prod
+RUN pnpm install --filter order-service...
 
 # Copy order-service source
 COPY apps/order-service ./apps/order-service
+
+# Compile TypeScript to JavaScript
+RUN pnpm --filter order-service build
 
 # Switch to order-service directory
 WORKDIR /app/apps/order-service
@@ -26,4 +29,3 @@ WORKDIR /app/apps/order-service
 EXPOSE 3000
 
 CMD ["pnpm", "start"]
-

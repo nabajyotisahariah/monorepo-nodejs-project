@@ -1,6 +1,6 @@
 import express from "express";
 import { logger } from "@packages/logger";
-import { createOrder, getAllOrders } from "../services/orderService.ts";
+import { createOrder, getAllOrders } from "../services/orderService.js";
 
 const router = express.Router();
 

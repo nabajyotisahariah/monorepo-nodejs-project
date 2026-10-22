@@ -19,4 +19,4 @@ yarn-error.log*
 # Operating system files
 .DS_Store
 Thumbs.db
-apps/api-gateway/dist/*
+apps/*/dist/

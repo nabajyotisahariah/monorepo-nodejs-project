@@ -1,6 +1,6 @@
 import express from "express";
 import { logger } from "@packages/logger";
-import { getAllUsers, getUserById } from "../services/userService.ts";
+import { getAllUsers, getUserById } from "../services/userService.js";
 
 const router = express.Router();
 
