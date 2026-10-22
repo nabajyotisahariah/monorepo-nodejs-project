@@ -1,4 +1,4 @@
-import type { Product } from "@packages/common";
+import type { Product } from "@packages/model";
 
 const products: Product[] = [
   { id: 101, name: "Laptop", price: 75000 },

@@ -1,5 +1,5 @@
 {
-  "name": "@packages/common",
+  "name": "@packages/model",
   "version": "1.0.0",
   "private": true,
   "type": "module",

@@ -129,15 +129,15 @@ importers:
 
   apps/order-service:
     dependencies:
-      '@packages/common':
-        specifier: workspace:*
-        version: link:../../packages/common
       '@packages/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@packages/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@packages/model':
+        specifier: workspace:*
+        version: link:../../packages/model
       express:
         specifier: ^5.1.0
         version: 5.3.0
@@ -157,15 +157,15 @@ importers:
 
   apps/product-service:
     dependencies:
-      '@packages/common':
-        specifier: workspace:*
-        version: link:../../packages/common
       '@packages/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@packages/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@packages/model':
+        specifier: workspace:*
+        version: link:../../packages/model
       express:
         specifier: ^5.1.0
         version: 5.3.0
@@ -185,15 +185,15 @@ importers:
 
   apps/user-service:
     dependencies:
-      '@packages/common':
-        specifier: workspace:*
-        version: link:../../packages/common
       '@packages/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@packages/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@packages/model':
+        specifier: workspace:*
+        version: link:../../packages/model
       express:
         specifier: ^5.1.0
         version: 5.3.0
@@ -211,11 +211,11 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
-  packages/common: {}
-
   packages/config: {}
 
   packages/logger: {}
+
+  packages/model: {}
 
 packages:
 

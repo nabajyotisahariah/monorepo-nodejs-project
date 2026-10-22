@@ -11,7 +11,7 @@
     "test": "echo 'No tests defined for this service.'"
   },
   "dependencies": {
-    "@packages/common": "workspace:*",
+    "@packages/model": "workspace:*",
     "@packages/config": "workspace:*",
     "@packages/logger": "workspace:*",
     "express": "^5.1.0",

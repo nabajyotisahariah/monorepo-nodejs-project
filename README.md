@@ -128,14 +128,14 @@ apps/
   order-service/      Order API and calls to user/product services (routes in src/routes/)
 packages/
   config/             Shared environment configuration
-  common/             Shared TypeScript User and Product entities
+  model/              Shared TypeScript User, Product, and Order entities
   logger/             Shared logger and date formatter
 helm/
   ecommerce1.1/       Kubernetes Helm chart
 ```
 
 Each service uses the shared `User` and `Product` types from
-`@packages/common`; the user and product services apply them to their catalog
+`@packages/model`; the user and product services apply them to their catalog
 data, and the order service uses them when creating orders. The shared
 `Order` entity is also defined there and used by the order service. Service
 logic is written in TypeScript and type-checked by each service's `build`

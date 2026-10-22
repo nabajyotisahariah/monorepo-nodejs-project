@@ -1,4 +1,4 @@
-import type { User } from "@packages/common";
+import type { User } from "@packages/model";
 
 const users: User[] = [
   { id: 1, name: "John", address: "123 Main St" },

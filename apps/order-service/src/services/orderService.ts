@@ -1,4 +1,4 @@
-import type { OrderWithDetails, Product, User } from "@packages/common";
+import type { OrderWithDetails, Product, User } from "@packages/model";
 
 export interface CreatedOrder {
   order: OrderWithDetails;
