@@ -218,3 +218,22 @@ For production, use HTTPS, restrict direct public access to the backend services
 One key distinction: Nginx routes HTTP requests, but it does not replace service discovery. In Docker Compose, Docker DNS resolves service names; in Kubernetes, Kubernetes Services provide stable internal endpoints and DNS.
 
 If you deploy these services on Kubernetes/GKE later, the same public URL structure can be implemented using an Ingress or Gateway API instead of running Nginx as a standalone Compose service.
+
+3. Rebuild and test
+Run these commands from ~/PythonProject/monorepo-nodejs-project
+
+
+# Confirm the resolved Docker build configuration
+docker compose config
+
+# Rebuild using the corrected context
+docker compose build --no-cache
+
+# Start all services
+docker compose up -d
+
+# Inspect container status
+docker compose ps
+
+# Inspect service logs if anything fails
+docker compose logs --tail=100 user-service product-service order-service nginx
