@@ -11,9 +11,13 @@ const PRODUCT_SERVICE_URL =
   process.env.PRODUCT_SERVICE_URL ?? "http://localhost:3002";
 
 const ORDER_SERVICE_URL =
-  process.env.ORDER_SERVICE_URL ?? "http://localhost:3000";
+  process.env.ORDER_SERVICE_URL ?? "http://localhost:3003";
 
 // Route requests to the appropriate service.
+app.use("/health", (req, res) => {
+  res.send("API Gateway is healthy");
+});
+
 app.use(
   "/api/users",
   createProxyMiddleware({
