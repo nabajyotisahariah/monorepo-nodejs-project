@@ -1,0 +1,91 @@
+Here are the Docker commands to remove containers and images.
+
+## 1. Remove containers
+
+```
+# List running containers
+docker ps
+
+# List all containers
+docker ps -a
+
+# Stop a container
+docker stop <container_id>
+
+# Remove a stopped container
+docker rm <container_id>
+
+# Force remove a running or stopped container
+docker rm -f <container_id>
+
+# Remove all stopped containers
+docker container prune
+```
+
+## 2. Remove Docker images
+
+```
+# List images
+docker images
+
+# Remove an image
+docker rmi <image_id>
+
+# Force remove an image
+docker rmi -f <image_id>
+
+# Remove dangling images
+docker image prune
+
+# Remove all unused images
+docker image prune -a
+```
+
+## 3. Clean up everything unused
+
+```
+# Remove stopped containers, unused networks,
+# dangling images, and build cache
+docker system prune
+
+# Also remove all unused images
+docker system prune -a
+
+# Also remove unused volumes (be careful: data can be lost)
+docker system prune -a --volumes
+```
+
+## 4. Remove all containers and images
+
+Warning: These commands delete all containers and images, including ones unrelated to your project.
+
+```
+# Stop all running containers
+docker stop $(docker ps -q)
+
+# Remove all containers
+docker rm -f $(docker ps -aq)
+
+# Remove all images
+docker rmi -f $(docker images -aq)
+```
+
+## 5. For your Node.js monorepo
+
+If you're using Docker Compose, you can clean up only your project's containers and network:
+
+```
+docker compose down
+```
+
+To remove the project's images as well:
+
+```
+docker compose down --rmi all
+```
+
+To remove its named and anonymous volumes too:
+
+```
+docker compose down --rmi all --volumes
+```
