@@ -1,0 +1,252 @@
+Yes. In Docker Compose, you can pass environment variables to any service, including `nginx`, `user-service`, `product-service`, and `order-service`.
+
+For your Node.js monorepo, I recommend using a `.env` file for configurable values and Docker Compose's `environment` or `env_file` options to inject them into each container.
+
+## 1. Pass environment variables to each service
+
+For example, update your `docker-compose.yml` like this:
+
+```
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "82:80"
+    environment:
+      - NGINX_PORT=80
+      - USER_SERVICE_URL=http://user-service:3000
+      - PRODUCT_SERVICE_URL=http://product-service:3000
+      - ORDER_SERVICE_URL=http://order-service:3000
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: .
+      dockerfile: apps/user-service/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      SERVICE_NAME: user-service
+    restart: unless-stopped
+
+  product-service:
+    build:
+      context: .
+      dockerfile: apps/product-service/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      SERVICE_NAME: product-service
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: .
+      dockerfile: apps/order-service/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      SERVICE_NAME: order-service
+      USER_SERVICE_URL: http://user-service:3000
+      PRODUCT_SERVICE_URL: http://product-service:3000
+    restart: unless-stopped
+
+```
+
+Important: Setting `environment` on the NGINX container does not automatically make those variables available to its configuration file. The official NGINX image does not automatically substitute environment variables into arbitrary `nginx.conf` files.
+
+## 2. Recommended: Use a `.env` file
+
+Create a `.env` file in the same directory as `docker-compose.yml`.
+
+```
+
+NODE_ENV=production
+SERVICE_PORT=3000
+
+USER_SERVICE_URL=http://user-service:3000
+PRODUCT_SERVICE_URL=http://product-service:3000
+ORDER_SERVICE_URL=http://order-service:3000
+
+```
+
+Reference these variables in your Compose file:
+
+```
+
+services:
+  user-service:
+    build:
+      context: .
+      dockerfile: apps/user-service/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${SERVICE_PORT}
+      SERVICE_NAME: user-service
+
+  product-service:
+    build:
+      context: .
+      dockerfile: apps/product-service/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${SERVICE_PORT}
+      SERVICE_NAME: product-service
+
+  order-service:
+    build:
+      context: .
+      dockerfile: apps/order-service/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${SERVICE_PORT}
+      SERVICE_NAME: order-service
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      PRODUCT_SERVICE_URL: ${PRODUCT_SERVICE_URL}
+
+```
+
+Docker Compose reads `.env` for variable interpolation. The `environment` section then passes the resolved values into each container.
+
+Note that `SERVICE_PORT` is shared configuration here; it doesn't mean all services need to use the same port if you later configure them differently.
+
+## 3. Alternative: Use `env_file` for each service
+
+If you want to manage service-specific environment variables separately, use `env_file`.
+
+Example directory structure:
+
+```
+monorepo-nodejs-project/
+├── docker-compose.yml
+├── .env
+├── apps/
+│   ├── user-service/
+│   │   ├── .env
+│   │   └── Dockerfile
+│   ├── product-service/
+│   │   ├── .env
+│   │   └── Dockerfile
+│   └── order-service/
+│       ├── .env
+│       └── Dockerfile
+└── nginx/
+    └── nginx.conf
+```
+
+Configure each service:
+
+```
+services:
+  user-service:
+    env_file:
+      - ./apps/user-service/.env
+
+  product-service:
+    env_file:
+      - ./apps/product-service/.env
+
+  order-service:
+    env_file:
+      - ./apps/order-service/.env
+```
+
+Example `apps/order-service/.env`:
+
+```
+PORT=3000
+NODE_ENV=production
+USER_SERVICE_URL=http://user-service:3000
+PRODUCT_SERVICE_URL=http://product-service:3000
+```
+
+You can combine `env_file` and `environment`; values specified in `environment` take precedence over values from `env_file`.
+
+## 4. How should NGINX use environment variables?
+
+If you want to configure NGINX upstreams dynamically, use a template and the official image's environment-variable substitution mechanism.
+
+For example, create `nginx/nginx.conf.template`:
+
+```
+events {}
+
+http {
+    server {
+        listen 80;
+
+        location /api/users/ {
+            proxy_pass ${USER_SERVICE_URL}/;
+        }
+
+        location /api/products/ {
+            proxy_pass ${PRODUCT_SERVICE_URL}/;
+        }
+
+        location /api/orders/ {
+            proxy_pass ${ORDER_SERVICE_URL}/;
+        }
+    }
+}
+```
+
+Then mount the template rather than a static configuration file:
+
+```
+nginx:
+  image: nginx:alpine
+  ports:
+    - "82:80"
+  environment:
+    USER_SERVICE_URL: http://user-service:3000
+    PRODUCT_SERVICE_URL: http://product-service:3000
+    ORDER_SERVICE_URL: http://order-service:3000
+  volumes:
+    - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+```
+
+The official NGINX image processes templates in `/etc/nginx/templates/` at container startup and writes the rendered configuration into `/etc/nginx/conf.d/`. The template above assumes the standard image entrypoint remains enabled.
+
+Watch out for URL path behavior: With `proxy_pass` written as shown, the trailing slash affects how NGINX forwards the URI. Test your intended API paths before using this configuration in production.
+
+## 5. Validate and run
+
+```
+# Check the resolved Compose configuration
+docker compose config
+
+# Recreate containers with the updated configuration
+docker compose up -d --build
+
+# Verify environment variables inside a service
+docker compose exec order-service printenv USER_SERVICE_URL
+
+# Test an API through NGINX
+curl http://localhost:82/api/users/health
+```
+
+Your services can communicate using Docker Compose service names, such as `http://user-service:3000`. You do not need to expose each service's port to your host for internal communication; `expose` is sufficient for that purpose.
+
+My recommendation: For your monorepo, use a root `.env` for shared non-secret configuration, service-specific `env_file` files when useful, and Docker's service-name DNS for internal URLs. Keep passwords, API keys, and other secrets out of committed `.env` files.

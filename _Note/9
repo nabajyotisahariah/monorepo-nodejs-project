@@ -1,0 +1,210 @@
+For your Node.js monorepo running in Docker Compose, you can use environment variables to configure NGINX and your backend services. The important detail is that NGINX does not automatically substitute Docker Compose environment variables into `nginx.conf`.
+
+A good approach is to use a templated NGINX configuration and let the official `nginx:alpine` image render it when the container starts.
+
+## 1. Recommended architecture
+
+`.env` file
+
+Ports, environment name, upstream settings
+
+Docker Compose
+
+Passes variables into the NGINX container
+
+NGINX template
+
+`nginx.conf.template` → `nginx.conf`
+
+Reverse proxy
+
+Routes requests to user, product, and order services
+
+## 2. Create a root `.env` file
+
+At your monorepo root, create or update `.env`:
+
+```
+
+# Local environment
+APP_ENV=development
+
+# Host port published by Docker Compose
+NGINX_PORT=8080
+
+# Docker internal service names and ports
+USER_SERVICE_HOST=user-service
+USER_SERVICE_PORT=3001
+
+PRODUCT_SERVICE_HOST=product-service
+PRODUCT_SERVICE_PORT=3002
+
+ORDER_SERVICE_HOST=order-service
+ORDER_SERVICE_PORT=3000
+
+```
+
+With this example, you will access the APIs through `http://localhost:8080` rather than port 80.
+
+## 3. Create `nginx/default.conf.template`
+
+Use the official NGINX image's template mechanism to substitute the environment variables at container startup.
+
+```
+
+upstream user_service {
+    server ${USER_SERVICE_HOST}:${USER_SERVICE_PORT};
+}
+
+upstream product_service {
+    server ${PRODUCT_SERVICE_HOST}:${PRODUCT_SERVICE_PORT};
+}
+
+upstream order_service {
+    server ${ORDER_SERVICE_HOST}:${ORDER_SERVICE_PORT};
+}
+
+server {
+    listen 80;
+    server_name localhost;
+
+    location /api/users/ {
+        proxy_pass http://user_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/products/ {
+        proxy_pass http://product_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/orders/ {
+        proxy_pass http://order_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        return 404;
+    }
+}
+
+```
+
+Important: Keep NGINX variables such as `$host`, `$remote_addr`, and `$scheme` unchanged. The configuration below restricts environment substitution to the variables intended for it.
+
+## 4. Update `docker-compose.yml`
+
+Change your NGINX service to mount the template directory and pass the environment variables.
+
+```
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    env_file:
+      - .env
+    environment:
+      NGINX_ENVSUBST_FILTER: "^(USER_SERVICE_HOST|USER_SERVICE_PORT|PRODUCT_SERVICE_HOST|PRODUCT_SERVICE_PORT|ORDER_SERVICE_HOST|ORDER_SERVICE_PORT)$"
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: .
+      dockerfile: apps/user-service/Dockerfile
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+  product-service:
+    build:
+      context: .
+      dockerfile: apps/product-service/Dockerfile
+    expose:
+      - "3002"
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: .
+      dockerfile: apps/order-service/Dockerfile
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+```
+
+Keep your existing backend health checks when merging this configuration. Also, remove the old mount of `./nginx/nginx.conf` for this approach; otherwise, you may override the configuration you intend to generate.
+
+## 5. Start and verify
+
+From your monorepo root in Git Bash:
+
+```
+
+# Validate the Compose configuration
+docker compose config
+
+# Recreate the gateway and services
+docker compose up -d --build
+
+# Validate the rendered NGINX configuration
+docker compose exec nginx nginx -t
+
+# Inspect the generated configuration
+docker compose exec nginx cat /etc/nginx/conf.d/default.conf
+
+# Test your APIs
+curl -i http://localhost:8080/api/users
+curl -i http://localhost:8080/api/products
+curl -i http://localhost:8080/api/orders
+
+```
+
+The official NGINX entrypoint renders `default.conf.template` into `/etc/nginx/conf.d/default.conf` when the container starts.
+
+## 6. What about environment variables for all Node.js services?
+
+You can also pass shared settings to all your backend containers:
+
+```
+user-service:
+  # Keep your existing build configuration
+  environment:
+    NODE_ENV: ${APP_ENV:-development}
+
+product-service:
+  # Keep your existing build configuration
+  environment:
+    NODE_ENV: ${APP_ENV:-development}
+
+order-service:
+  # Keep your existing build configuration
+  environment:
+    NODE_ENV: ${APP_ENV:-development}
+```
+
+Merge these `environment` sections into your existing service definitions rather than replacing their build, health-check, or restart settings.
+
+For production, keep credentials and API keys in a secrets manager rather than committing them to `.env`.
+
+My recommendation: Use `.env` for deployment-specific settings, Docker Compose for injecting those settings, and NGINX templates for generating configuration. This lets you reuse the same monorepo across local development, testing, and production without hardcoding environment-specific values into your NGINX configuration.
