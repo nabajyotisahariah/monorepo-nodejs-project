@@ -171,6 +171,7 @@ test scripts; no service test suite is configured yet.
 
 
 ### Running the application using docker compose 
+```
 # Build
 $ docker-compose up -d --build
 #2 [product-service internal] load build definition from Dockerfile
@@ -178,8 +179,10 @@ $ docker-compose up -d --build
 #4 [user-service internal] load build definition from Dockerfile
 #4 transferring dockerfile: 658B 0.0s done
 #4 DONE 0.0s
+```
 
-# Service Test
+### Service Test using Docker
+```
 $ docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -X POST -H 'Content-Type: application/json' -d '{\"userId\":5,\"productId\":103,\"quantity\":2}' http://order-service:3000/order"
                           0
 {
@@ -189,17 +192,21 @@ $ docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -X POST -H 'Content-Ty
 	}
 }
 
-# Service logs
-$ docker logs monorepo-nodejs-project-nginx-1
-192.168.143.2 - - [22/Oct/2026:06:48:23 +0000] "GET /api/products/product HTTP/1.1" 404 159 "-" "PostmanRuntime/2.12.0"
-192.168.143.2 - - [22/Oct/2026:06:48:42 +0000] "GET /api/products/product HTTP/1.1" 404 159 "-" "PostmanRuntime/2.12.0"
+$ docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -H 'Content-Type: application/json' http://order-service:3000/order"
 
- 
-$ docker logs --tail 20 monorepo-nodejs-project-order-service-1
-[INFO] HTTP GET /health 200
-> order-service@1.0.0 start /app/apps/order-service
-> tsx src/server.js
+{"id":"1","user":{"id":7,"name":"Ava","address":"19 Willow Court"}]
 
+$  docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -H 'Content-Type: application/json' http://product-service:3000/product"
+
+[{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
+
+$  docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -H 'Content-Type: application/json' http://user-service:3000/user"
+
+ [{"id":1,"name":"John","address":"123 Main St"},{"id":2,"name":"David","address":"456 Oak Ave"}]
+```
+
+### Service Test using Postman
+```
 $ curl --location 'http://localhost:82/api/products/product'
 [{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
 
@@ -212,4 +219,19 @@ $ curl --location 'http://localhost:82/api/orders/order'
 $ curl --location 'http://localhost:82/api/orders/order' \
 --data '{"userId":7,"productId":103,"quantity":2}'
 {"message":"userId and productId must be integers, and quantity must be a positive integer"}
+```
+
+# Service logs
+```
+$ docker logs monorepo-nodejs-project-nginx-1
+
+192.168.143.2 - - [22/Oct/2026:06:48:23 +0000] "GET /api/products/product HTTP/1.1" 404 159 "-" "PostmanRuntime/2.12.0"
+192.168.143.2 - - [22/Oct/2026:06:48:42 +0000] "GET /api/products/product HTTP/1.1" 404 159 "-" "PostmanRuntime/2.12.0"
+
+ 
+$ docker logs --tail 20 monorepo-nodejs-project-order-service-1
+[INFO] HTTP GET /health 200
+> order-service@1.0.0 start /app/apps/order-service
+> tsx src/server.js
+```
 
