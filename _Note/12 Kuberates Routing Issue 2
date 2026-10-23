@@ -1,0 +1,12 @@
+For the existing **GCE Ingress** in `ingress.yaml`, the simplest fix is to make the product app accept the `/api/products` prefix. That Ingress forwards the original path; it does not rewrite it.
+
+In `server.ts`, keep the existing router mount and add a prefixed mount:
+
+```ts
+app.use(routes); // Preserves /health and existing routes
+app.use("/api/products", routes);
+```
+
+Then `GET /api/products/product` will reach the existing `/product` route, while the Kubernetes health probes can continue using `/health`.
+
+Rebuild and redeploy the product-service image after changing the app. If you’re deploying the `ecommerce1.1` chart instead, it already defines a URL rewrite in `ingress.yaml`; check that you’re actually using its Gateway API route and that the Gateway supports the rewrite. Don’t rely on that rewrite if you’re using the `ecommerce1.0` GCE Ingress.

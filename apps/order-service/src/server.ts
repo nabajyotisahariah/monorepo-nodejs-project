@@ -22,6 +22,7 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(routes);
+app.use("/api/orders", routes);
 
 app.use((error: unknown, _req: Request, _res: Response, next: NextFunction) => {
   logger.error(error instanceof Error ? error.stack ?? error.message : String(error));
