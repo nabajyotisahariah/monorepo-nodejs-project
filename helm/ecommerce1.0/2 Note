@@ -15,27 +15,37 @@ service/order-service created
 $ kubectl apply -f helm/ecommerce1.0/ingress/
 ingress.networking.k8s.io/microservices-ingress created
 
-$ kubectl get ingress -o wide
-NAME                    CLASS    HOSTS   ADDRESS         PORTS   AGE
-microservices-ingress   <none>   *       136.68.88.32   80      13m
+$ kubectl get ingress
+NAME                    CLASS    HOSTS   ADDRESS          PORTS   AGE
+microservices-ingress   <none>   *       136.68.181.136   80      54m
 
   Note: It takes some time for the Public IP
 
-$ kubectl get svc -o wide
-NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE   SELECTOR
-kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   34h   <none>
-order-service     ClusterIP   34.118.227.11    <none>        80/TCP    47m   app=order-service
-product-service   ClusterIP   34.118.225.13    <none>        80/TCP    47m   app=product-service
-user-service      ClusterIP   34.118.230.255   <none>        80/TCP    47m   app=user-service
+$ kubectl get svc
+NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   47h
+order-service     ClusterIP   34.118.238.106   <none>        80/TCP    59s
+product-service   ClusterIP   34.118.237.27    <none>        80/TCP    60s
+user-service      ClusterIP   34.118.230.94    <none>        80/TCP    61s
+
 
 $ kubectl get pods
-NAME                               READY   STATUS    RESTARTS   AGE
-order-service-7f5bbf679d-bfds4     1/1     Running   0          35m
-order-service-7f5bbf679d-ngrz6     1/1     Running   0          35m
-product-service-5b9b8897b7-bd6sw   1/1     Running   0          35m
-product-service-5b9b8897b7-lgdph   1/1     Running   0          35m
-user-service-f5979cdbf-6q8zh       1/1     Running   0          35m
-user-service-f5979cdbf-cs78l       1/1     Running   0          35m
+NAME                              READY   STATUS    RESTARTS   AGE
+order-service-bfb89d9b4-9rkpj     0/1     Running   0          23s
+order-service-bfb89d9b4-zlz5z     0/1     Running   0          23s
+product-service-7586cc4d9-f954s   0/1     Running   0          23s
+product-service-7586cc4d9-wfqn8   0/1     Running   0          24s
+user-service-7dd46c4d8c-72tph     0/1     Running   0          26s
+user-service-7dd46c4d8c-zmxbx     0/1     Running   0          25s
+
+Ingress Api endpoints
+curl --location 'http://136.68.181.136/api/users/user'
+curl --location 'http://136.68.181.136/api/products/product'
+curl --location 'http://136.68.181.136/api/products/product/101'
+curl --location 'http://136.68.181.136/api/orders/order' \
+--header 'Content-Type: application/json' \
+--data '{"userId":1,"productId":103,"quantity":2}'
+curl --location 'http://136.68.181.136/api/orders/order'
 
 $ kubectl logs order-service-7f5bbf679d-bfds4 
 
@@ -166,3 +176,30 @@ spec:
         pathType: Prefix
 status:
   loadBalancer: {}
+
+### Debugging on Ingress
+
+1. Check whether the default HTTP backend exists
+
+Run:
+```
+kubectl get svc default-http-backend -n kube-system -o yaml
+kubectl get endpoints default-http-backend -n kube-system
+kubectl get pods -n kube-system | grep http
+```
+
+
+2. Check whether the missing NEG exists in Google Cloud
+
+```
+gcloud compute network-endpoint-groups list \
+  --project=weather-project-prod-511603 \
+  --filter="name:k8s1-c1bd0ffd-kube-system-default-http-backend-80-7739e04a"
+```
+
+3. Check the cluster events
+
+```
+kubectl get events -n kube-system \
+  --sort-by=.lastTimestamp
+```

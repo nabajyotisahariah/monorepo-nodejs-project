@@ -96,23 +96,16 @@ service:
 
 ingress:
   enabled: true
-  className: ""
-
-  # Used by the HTTPRoute template below.
-  gatewayName: ecommerce-gateway
   
   paths:
-    - path: /api/users/
+    - path: /api/users
       service: user-service
-      rewritePrefix: /
 
-    - path: /api/products/
+    - path: /api/products
       service: product-service
-      rewritePrefix: /
 
-    - path: /api/orders/
+    - path: /api/orders
       service: order-service
-      rewritePrefix: /
 
 
 probes:
