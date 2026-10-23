@@ -1,4 +1,6 @@
-Yes. Once we add **Ingress**, the complete GKE flow becomes:
+ **Ingress**, the complete GKE flow becomes:
+    $ helm/ecommerce1.0
+    $ kubectl apply -f helm/ecommerce1.0/
 
 ```text
                          Internet

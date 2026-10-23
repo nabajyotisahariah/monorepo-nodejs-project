@@ -1,4 +1,8 @@
-## 1. Final architecture
+## 1. Final architecture 
+    $ helm/ecommerce1.0
+    $ kubectl apply -f helm/ecommerce1.0/user/
+      kubectl apply -f helm/ecommerce1.0/product/
+      kubectl apply -f helm/ecommerce1.0/order/
 
 ```text
                          Internet

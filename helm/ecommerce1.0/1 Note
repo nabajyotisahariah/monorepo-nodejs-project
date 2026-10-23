@@ -1,0 +1,83 @@
+$ ls helm/ecommerce1.0
+ingress  Note  order  product  user
+
+$ kubectl apply -f helm/ecommerce1.0/user/
+kubectl apply -f helm/ecommerce1.0/product/
+kubectl apply -f helm/ecommerce1.0/order/
+
+deployment.apps/user-service created
+service/user-service created
+deployment.apps/product-service created
+service/product-service created
+deployment.apps/order-service created
+service/order-service created
+
+$ kubectl get pods
+NAME                               READY   STATUS    RESTARTS   AGE
+order-service-665684bd77-lv8cf     0/1     ErrImagePull       0          2m22s
+order-service-665684bd77-phfnf     0/1     ErrImagePull       0          2m22s
+product-service-7885f7fdb8-7rcfl   0/1     ErrImagePull       0          2m23s
+product-service-7885f7fdb8-s6w5t   0/1     ErrImagePull       0          2m23s
+user-service-794674c98b-dvgqb      0/1     ErrImagePull       0          2m24s
+user-service-794674c98b-zrngx      0/1     ImagePullBackOff   0          2m24s
+
+$ kubectl  get svc -o wide
+NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   33h   <none>
+order-service     ClusterIP   34.118.227.11    <none>        80/TCP    22m   app=order-service
+product-service   ClusterIP   34.118.225.13    <none>        80/TCP    22m   app=product-service
+user-service      ClusterIP   34.118.230.255   <none>        80/TCP    22m   app=user-service
+
+$ kubectl get ingress
+No resources found in default namespace.
+
+Note:
+    kubectl logs cannot show application errors until the container starts. In your case, the pods are in ErrImagePull
+
+    $ kubectl describe pod order-service-665684bd77-lv8cf
+    Name:             order-service-665684bd77-lv8cf
+    Namespace:        default
+    Events:
+    Type     Reason            Age                   From                                   Message
+    ----     ------            ----                  ----                                   -------
+    {order-service}: Failed to pull image "asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service": rpc error: code = NotFound
+
+$ kubectl get pods
+NAME                               READY   STATUS    RESTARTS   AGE
+order-service-7f5bbf679d-bfds4     1/1     Running   0          2m32s
+order-service-7f5bbf679d-ngrz6     1/1     Running   0          2m50s
+product-service-5b9b8897b7-bd6sw   1/1     Running   0          2m36s
+product-service-5b9b8897b7-lgdph   1/1     Running   0          2m51s
+user-service-f5979cdbf-6q8zh       1/1     Running   0          2m52s
+user-service-f5979cdbf-cs78l       1/1     Running   0          2m28s
+
+$ kubectl logs order-service-7f5bbf679d-bfds4 
+
+> order-service@1.0.0 start /app/apps/order-service
+> node dist/server.js
+
+[INFO] Order service running on port 3000 Service Start 23/10/2026, 04:02:26
+[INFO] HTTP GET /health 200
+[INFO] HTTP GET /health 200
+[INFO] HTTP GET /health 200
+
+$ kubectl run test-client1 --rm -it --image=curlimages/curl -- sh
+  ~ $ curl http://product-service:80/product
+  [{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000},{"id":103,"name":"Mouse","price":1200}]
+
+  ~ $ curl http://user-service:80/user
+  [{"id":1,"name":"John"},{"id":2,"name":"David"}]
+
+  ~ $ curl --location 'http://order-service:80/order' --header 'Content-Type: application/json'  --data '{"userId":4,"productId":104,"quantity":2}'
+  {"order":{"id":"1","user":{"id":4,"name":"Olivia","address":"24 Cedar Lane"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}~ $ 
+
+  ~ $ curl http://order-service:80/order
+    [{"order":{"id":"1","user":{"id":1,"name":"John","address":"123 Main St"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}]~ $
+
+$ kubectl exec -it product-service-5b9b8897b7-bd6sw -- sh
+  /app/apps/product-service #  wget -qO- http://localhost:3000/product
+  [{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
+
+$ kubectl exec -it user-service-f5979cdbf-6q8zh -- sh
+  /app/apps/user-service # wget -qO- http://localhost:3000/user
+  [{"id":1,"name":"John","address":"123 Main St"},{"id":2,"name":"David","address":"456 Oak Ave"}]
