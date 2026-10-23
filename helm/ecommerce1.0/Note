@@ -1,0 +1,3 @@
+kubectl apply -f k8s/user/
+kubectl apply -f k8s/product/
+kubectl apply -f k8s/order/

@@ -1,7 +1,3 @@
-Great. Let's deploy the **3 Node.js microservices to your existing GKE cluster**.
-
-I’ll keep this hands-on so you can run each command and understand what Kubernetes is doing.
-
 ## 1. Final architecture
 
 ```text
