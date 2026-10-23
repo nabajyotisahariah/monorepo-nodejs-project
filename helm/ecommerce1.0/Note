@@ -1,3 +1,43 @@
-kubectl apply -f k8s/user/
-kubectl apply -f k8s/product/
-kubectl apply -f k8s/order/
+$ ls helm/ecommerce1.0
+ingress  Note  order  product  user
+
+$ kubectl apply -f helm/ecommerce1.0/user/
+kubectl apply -f helm/ecommerce1.0/product/
+kubectl apply -f helm/ecommerce1.0/order/
+
+deployment.apps/user-service created
+service/user-service created
+deployment.apps/product-service created
+service/product-service created
+deployment.apps/order-service created
+service/order-service created
+
+$ kubectl get pods
+NAME                               READY   STATUS    RESTARTS   AGE
+order-service-665684bd77-lv8cf     0/1     ErrImagePull       0          2m22s
+order-service-665684bd77-phfnf     0/1     ErrImagePull       0          2m22s
+product-service-7885f7fdb8-7rcfl   0/1     ErrImagePull       0          2m23s
+product-service-7885f7fdb8-s6w5t   0/1     ErrImagePull       0          2m23s
+user-service-794674c98b-dvgqb      0/1     ErrImagePull       0          2m24s
+user-service-794674c98b-zrngx      0/1     ImagePullBackOff   0          2m24s
+
+$ kubectl get svc
+NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   33h
+order-service     ClusterIP   34.118.227.11    <none>        80/TCP    42s
+product-service   ClusterIP   34.118.225.13    <none>        80/TCP    43s
+user-service      ClusterIP   34.118.230.255   <none>        80/TCP    44s
+
+$ kubectl get ingress
+No resources found in default namespace.
+
+Note:
+    kubectl logs cannot show application errors until the container starts. In your case, the pods are in ErrImagePull
+
+    $ kubectl describe pod order-service-665684bd77-lv8cf
+    Name:             order-service-665684bd77-lv8cf
+    Namespace:        default
+    Events:
+    Type     Reason            Age                   From                                   Message
+    ----     ------            ----                  ----                                   -------
+    {order-service}: Failed to pull image "asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service": rpc error: code = NotFound

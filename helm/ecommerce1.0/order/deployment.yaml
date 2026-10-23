@@ -20,7 +20,7 @@ spec:
       containers:
         - name: order-service
 
-          image: asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service
+          image: asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0
 
           ports:
             - containerPort: 3000
