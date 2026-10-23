@@ -47,23 +47,73 @@ $ kubectl logs order-service-7f5bbf679d-bfds4
 [INFO] HTTP GET /health 200
 [INFO] HTTP GET /health 200
 
-$ kubectl run test-client1 --rm -it --image=curlimages/curl -- sh
-  ~ $ curl http://product-service:80/product
-  [{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000},{"id":103,"name":"Mouse","price":1200}]
+### Check Ingress events and backend health
 
-  ~ $ curl http://user-service:80/user
-  [{"id":1,"name":"John"},{"id":2,"name":"David"}]
+$ kubectl describe ingress microservices-ingress
+Name:             microservices-ingress
+Address:          136.68.120.27
+Ingress Class:    gce
+Default backend:  <default>
+Rules:
+  Host        Path  Backends
+  ----        ----  --------
+  *           
+              /api/users      user-service:80 (10.80.1.5:3000,10.80.2.10:3000)
+              /api/products   product-service:80 (10.80.1.6:3000,10.80.2.8:3000)
+              /api/orders     order-service:80 (10.80.1.7:3000,10.80.2.9:3000)
+Events:
+  Type    Reason     Age                From                     Message
+  ----    ------     ----               ----                     -------
+  Normal  Sync       23m                loadbalancer-controller  UrlMap "k8s2-um-e9moa925-default-microservices-ingress-k2kzs0k5" created
+  Normal  Sync       23m                loadbalancer-controller  TargetProxy "k8s2-tp-e9moa925-default-microservices-ingress-k2kzs0k5" created
+  Normal  Sync       23m                loadbalancer-controller  ForwardingRule "k8s2-fr-e9moa925-default-microservices-ingress-k2kzs0k5" created
+  Normal  IPChanged  23m                loadbalancer-controller  IP is now 136.68.120.27
+  Normal  Sync       12m (x6 over 32m)  loadbalancer-controller  Scheduled for sync
 
-  ~ $ curl --location 'http://order-service:80/order' --header 'Content-Type: application/json'  --data '{"userId":4,"productId":104,"quantity":2}'
-  {"order":{"id":"1","user":{"id":4,"name":"Olivia","address":"24 Cedar Lane"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}~ $ 
+2. Test the actual request routing
+  Run these commands from Cloud Shell:
+  curl -i http://136.68.120.27/api/users
+  curl -i http://136.68.120.27/api/products
+  curl -i http://136.68.120.27/api/orders
 
-  ~ $ curl http://order-service:80/order
-    [{"order":{"id":"1","user":{"id":1,"name":"John","address":"123 Main St"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}]~ $
+3. Check load-balancer request logs
+  GKE Ingress does not have a dedicated controller Pod for you to inspect with kubectl logs. Instead, use Cloud Logging:
 
-$ kubectl exec -it product-service-5b9b8897b7-bd6sw -- sh
-  /app/apps/product-service #  wget -qO- http://localhost:3000/product
-  [{"id":101,"name":"Laptop","price":75000},{"id":102,"name":"Keyboard","price":3000}]
+gcloud logging read \
+  'resource.type="http_load_balancer"' \
+  --project=weather-project-prod-511603 \
+  --limit=20 \
+  --format="table(timestamp,httpRequest.requestMethod,httpRequest.requestUrl,httpRequest.status)"
 
-$ kubectl exec -it user-service-f5979cdbf-6q8zh -- sh
-  /app/apps/user-service # wget -qO- http://localhost:3000/user
-  [{"id":1,"name":"John","address":"123 Main St"},{"id":2,"name":"David","address":"456 Oak Ave"}]
+  TIMESTAMP: 2026-10-22T18:33:39.063245Z
+  REQUEST_METHOD: GET
+  REQUEST_URL: http://136.68.181.136/api/products/product
+  STATUS: 404
+
+4. Check your Node.js application logs
+
+kubectl logs deployment/user-service --tail=50
+kubectl logs deployment/product-service --tail=50
+kubectl logs deployment/order-service --tail=50
+
+To follow order-service logs continuously:
+kubectl logs -f deployment/order-service
+
+### Delete Services
+  1. Delete the Ingress first
+   kubectl delete ingress microservices-ingress
+
+  2. Delete the Services
+  kubectl delete svc user-service product-service order-service
+
+  3. Delete the Pods
+  kubectl delete deployment user-service product-service order-service
+
+  4. Verify everything is removed
+  kubectl get pods
+  kubectl get svc
+  kubectl get ingress
+  kubectl get deployments
+
+  Alternative: Delete everything created by your Kubernetes YAML files
+    kubectl delete -f helm/ecommerce1.0/user/
