@@ -1,35 +1,30 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
-
 metadata:
   name: microservices-ingress
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-
 spec:
-  ingressClassName: nginx
+  ingressClassName: gce
   rules:
     - http:
         paths:
-          - path: /api/users(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /api/users
+            pathType: Prefix
             backend:
               service:
                 name: user-service
                 port:
                   number: 80
 
-          - path: /api/products(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /api/products
+            pathType: Prefix
             backend:
               service:
                 name: product-service
                 port:
                   number: 80
 
-          - path: /api/orders(/|$)(.*)
-            pathType: ImplementationSpecific
+          - path: /api/orders
+            pathType: Prefix
             backend:
               service:
                 name: order-service

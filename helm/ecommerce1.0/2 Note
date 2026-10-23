@@ -49,7 +49,7 @@ $ kubectl logs order-service-7f5bbf679d-bfds4
 
 ### Check Ingress events and backend health
 
-nabajyotisahariah009@cloudshell:~/monorepo-nodejs-project (weather-project-prod-511603)$ kubectl describe ingress microservices-ingress
+$ kubectl describe ingress microservices-ingress
 Name:             microservices-ingress
 Labels:           <none>
 Namespace:        default

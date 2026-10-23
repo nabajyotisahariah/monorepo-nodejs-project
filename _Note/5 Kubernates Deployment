@@ -67,9 +67,9 @@
     
 4. Build the Node.js image from indivisual repo
 
-    docker build -f apps/order-service/Dockerfile -t order-service:1.0 .
-    docker build -f apps/user-service/Dockerfile -t user-service:1.0 .
-    docker build -f apps/product-service/Dockerfile -t product-service:1.0 .
+    docker build --no-cache -f apps/order-service/Dockerfile -t order-service:1.0 .
+    docker build --no-cache -f apps/user-service/Dockerfile -t user-service:1.0 .
+    docker build --no-cache -f apps/product-service/Dockerfile -t product-service:1.0 .
 
     Ref
     docker build --no-cache -f apps/product-service/Dockerfile -t product-service:1.0 .
