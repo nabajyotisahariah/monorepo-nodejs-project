@@ -1,0 +1,852 @@
+For the **three Node.js services we created (`user-service`, `product-service`, `order-service`)**,
+ I would structure the Helm chart so that **one Helm release deploys all three services**.
+
+
+$ ls
+helm/  helm-config/  helm-temp/  k8s/  order-service/  package-lock.json  product-service/  user-service/
+
+$ helm create ecommerce1.0
+Creating ecommerce
+
+
+## 1. Helm chart structure
+
+```text
+nodejs-microservices/
+│
+├── user-service/
+│   ├── src/
+│   ├── package.json
+│   └── Dockerfile
+│
+├── product-service/
+│   ├── src/
+│   ├── package.json
+│   └── Dockerfile
+│
+├── order-service/
+│   ├── src/
+│   ├── package.json
+│   └── Dockerfile
+│
+└── helm/
+    └── ecommerce1.0/
+        ├── Chart.yaml
+        ├── values.yaml
+        │
+        └── templates/
+            ├── user-deployment.yaml
+            ├── user-service.yaml
+            ├── product-deployment.yaml
+            ├── product-service.yaml
+            ├── order-deployment.yaml
+            ├── order-service.yaml
+            └── ingress.yaml
+```
+
+The key idea is:
+
+```text
+                  Helm
+                   │
+                   ▼
+             ecommerce chart
+                   │
+       ┌───────────┼───────────┐
+       ▼           ▼           ▼
+     User        Product      Order
+   Deployment   Deployment   Deployment
+       │           │           │
+     Service     Service      Service
+```
+
+---
+
+# 2. `Chart.yaml`
+
+Create:
+
+```text
+helm/ecommerce/Chart.yaml
+```
+
+```yaml
+apiVersion: v2
+
+name: ecommerce
+
+description: Node.js microservices application
+
+type: application
+
+version: 1.0.0
+
+appVersion: "1.0"
+```
+
+---
+
+# 3. `values.yaml`
+
+This is where we keep configuration instead of hard-coding it in Kubernetes YAML.
+
+```yaml
+
+#Ref
+#Docker image:
+# order   : asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/order-service:1.0
+# product : asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/product-service:1.0
+# user    : asia-south2-docker.pkg.dev/python-project-1st-sep/ecommerce-nodejs-app-repo/user-service:1.0
+
+global:
+  image:
+    registry: asia-south2-docker.pkg.dev
+    project: python-project-1st-sep
+    repository: ecommerce-nodejs-app-repo
+    pullPolicy: IfNotPresent
+
+services:
+
+  user:
+    name: user-service
+    replicas: 2
+
+    image:
+      repository: user-service
+      tag: "1.0"
+
+    port: 3000
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  product:
+    name: product-service
+    replicas: 2
+
+    image:
+      repository: product-service
+      tag: "1.0"
+
+    port: 3000
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  order:
+    name: order-service
+    replicas: 2
+
+    image:
+      repository: order-service
+      tag: "1.0"
+
+    port: 3000
+
+    env:
+      USER_SERVICE_URL: http://user-service:80
+      PRODUCT_SERVICE_URL: http://product-service:80
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+
+service:
+  type: ClusterIP
+  port: 80
+
+
+ingress:
+  enabled: true
+  className: ""
+
+  paths:
+    - path: /users
+      service: user-service
+
+    - path: /products
+      service: product-service
+
+    - path: /orders
+      service: order-service
+
+
+probes:
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+  liveness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 20
+```
+
+Replace:
+
+```text
+REGION
+PROJECT_ID
+```
+
+For example:
+
+```yaml
+global:
+  imageRegistry: "us-central1-docker.pkg.dev/my-project/microservices"
+```
+
+---
+
+# 4. User Deployment
+
+Create:
+
+```text
+helm/ecommerce/templates/user-deployment.yaml
+```
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.services.user.name }}
+spec:
+  replicas: {{ .Values.services.user.replicas }}
+
+  selector:
+    matchLabels:
+      app: {{ .Values.services.user.name }}
+
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.services.user.name }}
+
+    spec:
+      containers:
+        - name: {{ .Values.services.user.name }}
+
+          image: "{{ .Values.global.image.registry }}/{{ .Values.global.image.project }}/{{ .Values.global.image.repository }}/{{ .Values.services.user.image.repository }}:{{ .Values.services.user.image.tag }}"
+
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+
+          ports:
+            - containerPort: {{ .Values.services.user.port }}
+
+          resources:
+            {{- toYaml .Values.services.user.resources | nindent 12 }}
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.services.user.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.services.user.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+```
+
+---
+
+# 5. User Service
+
+Create:
+
+```text
+helm/ecommerce/templates/user-service.yaml
+```
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.services.user.name }}
+
+spec:
+  type: {{ .Values.service.type }}
+
+  selector:
+    app: {{ .Values.services.user.name }}
+
+  ports:
+    - protocol: TCP
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.services.user.port }}
+```
+
+---
+
+# 6. Product Deployment
+
+`templates/product-deployment.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.services.product.name }}
+spec:
+  replicas: {{ .Values.services.product.replicas }}
+
+  selector:
+    matchLabels:
+      app: {{ .Values.services.product.name }}
+
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.services.product.name }}
+
+    spec:
+      containers:
+        - name: {{ .Values.services.product.name }}
+
+          image: "{{ .Values.global.image.registry }}/{{ .Values.global.image.project }}/{{ .Values.global.image.repository }}/{{ .Values.services.product.image.repository }}:{{ .Values.services.product.image.tag }}"
+
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+
+          ports:
+            - containerPort: {{ .Values.services.product.port }}
+
+          resources:
+            {{- toYaml .Values.services.product.resources | nindent 12 }}
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.services.product.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.services.product.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+```
+
+---
+
+# 7. Product Service
+
+`templates/product-service.yaml`
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.services.product.name }}
+
+spec:
+  type: {{ .Values.service.type }}
+
+  selector:
+    app: {{ .Values.services.product.name }}
+
+  ports:
+    - protocol: TCP
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.services.product.port }}
+```
+
+---
+
+# 8. Order Deployment
+
+This is the most important one because it communicates with the other services.
+
+`templates/order-deployment.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.services.order.name }}
+spec:
+  replicas: {{ .Values.services.order.replicas }}
+
+  selector:
+    matchLabels:
+      app: {{ .Values.services.order.name }}
+
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.services.order.name }}
+
+    spec:
+      containers:
+        - name: {{ .Values.services.order.name }}
+
+          image: "{{ .Values.global.image.registry }}/{{ .Values.global.image.project }}/{{ .Values.global.image.repository }}/{{ .Values.services.order.image.repository }}:{{ .Values.services.order.image.tag }}"
+
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+
+          ports:
+            - containerPort: {{ .Values.services.order.port }}
+
+          env:
+            - name: USER_SERVICE_URL
+              value: {{ .Values.services.order.env.USER_SERVICE_URL | quote }}
+
+            - name: PRODUCT_SERVICE_URL
+              value: {{ .Values.services.order.env.PRODUCT_SERVICE_URL | quote }}
+
+          resources:
+            {{- toYaml .Values.services.order.resources | nindent 12 }}
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: {{ .Values.services.order.port }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: {{ .Values.services.order.port }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+```
+
+Notice what Helm generates:
+
+```text
+USER_SERVICE_URL=http://user-service:3000
+
+PRODUCT_SERVICE_URL=http://product-service:3000
+```
+
+This is Kubernetes service discovery.
+
+---
+
+# 9. Order Service
+
+`templates/order-service.yaml`
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.services.order.name }}
+
+spec:
+  type: {{ .Values.service.type }}
+
+  selector:
+    app: {{ .Values.services.order.name }}
+
+  ports:
+    - protocol: TCP
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.services.order.port }}
+```
+
+---
+
+# 10. Ingress
+
+`templates/ingress.yaml`
+
+```yaml
+{{- if .Values.ingress.enabled }}
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: ecommerce-ingress
+
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+
+  rules:
+    - http:
+        paths:
+
+          {{- range .Values.ingress.paths }}
+
+          - path: {{ .path }}
+            pathType: Prefix
+
+            backend:
+              service:
+                name: {{ .service }}
+                port:
+                  number: {{ $.Values.service.port }}
+
+          {{- end }}
+
+{{- end }}
+```
+
+---
+
+# 11. Validate Helm
+
+From:
+
+```text
+nodejs-microservices/
+```
+
+run:
+
+```bash
+helm lint ./helm/ecommerce
+```
+
+You should get:
+
+```text
+1 chart(s) linted, 0 chart(s) failed
+```
+
+Then see what Helm will generate:
+
+```bash
+helm template ecommerce ./helm/ecommerce
+```
+
+This is extremely useful for learning Helm.
+
+You're effectively saying:
+
+```text
+values.yaml
+     +
+templates/*.yaml
+     │
+     ▼
+Helm
+     │
+     ▼
+Kubernetes YAML
+```
+
+---
+
+# 12. Install the complete application
+
+```bash
+helm install ecommerce ./helm/ecommerce
+```
+
+Check:
+
+```bash
+helm list
+```
+
+You should see:
+
+```text
+NAME        STATUS
+ecommerce   deployed
+```
+
+---
+
+# 13. Check Deployments
+
+```bash
+kubectl get deployments
+```
+
+Expected:
+
+```text
+NAME              READY
+user-service      2/2
+product-service   2/2
+order-service     2/2
+```
+
+---
+
+# 14. Check Services
+
+```bash
+kubectl get svc
+```
+
+Expected:
+
+```text
+NAME              TYPE
+user-service      ClusterIP
+product-service   ClusterIP
+order-service     ClusterIP
+```
+
+---
+
+# 15. Check Pods
+
+```bash
+kubectl get pods
+```
+
+Expected:
+
+```text
+user-service-xxxxx       1/1 Running
+user-service-yyyyy       1/1 Running
+
+product-service-xxxxx    1/1 Running
+product-service-yyyyy    1/1 Running
+
+order-service-xxxxx      1/1 Running
+order-service-yyyyy      1/1 Running
+```
+
+---
+
+# 16. Verify Helm-generated environment variables
+
+This is a very good learning exercise.
+
+```bash
+kubectl exec deploy/order-service -- env
+```
+
+Look for:
+
+```text
+USER_SERVICE_URL=http://user-service:3000
+PRODUCT_SERVICE_URL=http://product-service:3000
+```
+
+So the architecture is:
+
+```text
+                 order-service
+                       │
+             ┌─────────┴──────────┐
+             │                    │
+             ▼                    ▼
+       user-service        product-service
+             │                    │
+             ▼                    ▼
+          ClusterIP             ClusterIP
+             │                    │
+          ┌──┴──┐              ┌──┴──┐
+          Pod   Pod             Pod   Pod
+```
+
+---
+
+# 17. Upgrade the application
+
+Suppose you build version `1.1` of `order-service`.
+
+Build:
+
+```bash
+docker build \
+  -t REGION-docker.pkg.dev/PROJECT_ID/microservices/order-service:1.1 \
+  ./order-service
+```
+
+Push:
+
+```bash
+docker push \
+  REGION-docker.pkg.dev/PROJECT_ID/microservices/order-service:1.1
+```
+
+Change:
+
+```yaml
+services:
+  order:
+    tag: "1.1"
+```
+
+Then:
+
+```bash
+helm upgrade ecommerce ./helm/ecommerce
+```
+
+Kubernetes performs a rolling update.
+
+```text
+Order Pod v1
+     │
+     ▼
+Order Pod v1.1
+     │
+     ▼
+Order Pod v1.1
+```
+
+You don't have to manually delete the old Pods.
+
+---
+
+# 18. Scaling
+
+Change:
+
+```yaml
+services:
+  order:
+    replicas: 5
+```
+
+Then:
+
+```bash
+helm upgrade ecommerce ./helm/ecommerce
+```
+
+Kubernetes creates:
+
+```text
+order-service
+     │
+     ├── Pod 1
+     ├── Pod 2
+     ├── Pod 3
+     ├── Pod 4
+     └── Pod 5
+```
+
+And the Kubernetes Service distributes traffic across them.
+
+---
+
+# 19. Uninstall everything
+
+Because this is one Helm release:
+
+```bash
+helm uninstall ecommerce
+```
+
+This removes the resources created by this release.
+
+That's one of the major advantages of Helm.
+
+---
+
+## The important Helm concept
+
+Don't think of Helm as replacing Kubernetes.
+
+Think of it this way:
+
+```text
+             Helm
+              │
+              │ generates/manages
+              ▼
+       Kubernetes manifests
+              │
+              ▼
+       Kubernetes API Server
+              │
+       ┌──────┼──────┐
+       ▼      ▼      ▼
+     Deploy  Service Ingress
+       │
+       ▼
+      Pods
+```
+
+And for your particular application:
+
+```text
+                  HELM
+                   │
+                   ▼
+             ecommerce chart
+                   │
+       ┌───────────┼───────────┐
+       ▼           ▼           ▼
+     USER        PRODUCT      ORDER
+       │           │           │
+       ▼           ▼           ▼
+   Deployment  Deployment  Deployment
+       │           │           │
+       ▼           ▼           ▼
+    Service     Service     Service
+                               │
+                    ┌──────────┴──────────┐
+                    │                     │
+                    ▼                     ▼
+               user-service        product-service
+```
+
+**One Helm chart → one release → multiple microservices.**
+
+For your next step, the best improvement would be to refactor this into a **generic Helm template using a `services` array**, so you don't need three separate deployment/service YAML files. That is the pattern you'll commonly see in more sophisticated multi-service deployments.
+
+
+
+$  helm install microservices ./helm/ecommerce/
+NAME: microservices
+LAST DEPLOYED: Sun Sep 13 06:15:28 2026
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+
+$ gcloud container clusters list
+NAME                                      LOCATION     MASTER_VERSION      MASTER_IP       MACHINE_TYPE   NODE_VERSION        NUM_NODES  STATUS   STACK_TYPE
+nodejs-microservices-autopilot-cluster-3  asia-south2  1.35.7-gke.1222000  34.131.158.192  ek-standard-8  1.35.7-gke.1222000  3          RUNNING  IPV4
+
+$ gcloud container clusters list
+NAME                                      LOCATION     MASTER_VERSION      MASTER_IP       MACHINE_TYPE   NODE_VERSION        NUM_NODES  STATUS   STACK_TYPE
+nodejs-microservices-autopilot-cluster-3  asia-south2  1.35.7-gke.1222000  34.131.158.192  ek-standard-8  1.35.7-gke.1222000  3          RUNNING  IPV4
+
+$ kubectl get pods
+NAME                               READY   STATUS    RESTARTS   AGE
+order-service-5d5bf75685-g6gfx     1/1     Running   0          108s
+order-service-5d5bf75685-tlmzm     1/1     Running   0          108s
+product-service-6b5db7f7df-k5rcj   1/1     Running   0          108s
+product-service-6b5db7f7df-sm6p8   1/1     Running   0          108s
+test-client                        1/1     Running   0          72m
+user-service-56cd98d589-57wnv      1/1     Running   0          108s
+user-service-56cd98d589-jlx9r      1/1     Running   0          108s
+
+$ kubectl get svc
+NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   47h
+order-service     ClusterIP   34.118.237.138   <none>        80/TCP    113s
+product-service   ClusterIP   34.118.225.136   <none>        80/TCP    113s
+user-service      ClusterIP   34.118.236.247   <none>        80/TCP    113s
+
+$ kubectl get ingress
+NAME                CLASS    HOSTS   ADDRESS   PORTS   AGE
+NAME                CLASS    HOSTS   ADDRESS   PORTS   AGE
+ecommerce-ingress   <none>   *                 80      2m4s

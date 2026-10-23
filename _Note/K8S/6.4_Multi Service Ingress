@@ -1,0 +1,417 @@
+Yes. Once we add **Ingress**, the complete GKE flow becomes:
+
+```text
+                         Internet
+                            │
+                            │ HTTP/HTTPS
+                            ▼
+                 ┌─────────────────────┐
+                 │  GCP Load Balancer   │
+                 └──────────┬──────────┘
+                            │
+                            ▼
+                 ┌─────────────────────┐
+                 │   GKE Ingress       │
+                 │                     │
+                 │ Routing rules       │
+                 └──────────┬──────────┘
+                            │
+             ┌──────────────┼──────────────┐
+             │              │              │
+          /users         /products       /orders
+             │              │              │
+             ▼              ▼              ▼
+       user-service   product-service  order-service
+        ClusterIP       ClusterIP       ClusterIP
+             │              │              │
+          ┌──┴──┐         ┌─┴──┐         ┌─┴──┐
+          │     │         │    │         │    │
+         Pod   Pod        Pod  Pod       Pod  Pod
+                                           │
+                              ┌────────────┴────────────┐
+                              │                         │
+                              ▼                         ▼
+                         user-service            product-service
+```
+
+There are **two different types of communication** here.
+
+### External communication
+
+```text
+Browser/Postman
+      │
+      ▼
+GCP Load Balancer
+      │
+      ▼
+Ingress
+      │
+      ▼
+Kubernetes Service
+      │
+      ▼
+Pod
+```
+
+### Internal microservice communication
+
+```text
+order-service Pod
+       │
+       ├── http://user-service:3000
+       │
+       └── http://product-service:3000
+```
+
+---
+
+# 1. Ingress YAML
+
+Use the Ingress we created earlier:
+
+`k8s/ingress/ingress.yaml`
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: microservices-ingress
+
+spec:
+  rules:
+    - http:
+        paths:
+
+          - path: /users
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 3000
+
+          - path: /products
+            pathType: Prefix
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 3000
+
+          - path: /orders
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 3000
+```
+
+Apply it:
+
+```bash
+kubectl apply -f k8s/ingress/ingress.yaml
+```
+
+Then:
+
+```bash
+kubectl get ingress
+```
+
+Initially you might see:
+
+```text
+NAME                   CLASS    HOSTS   ADDRESS   PORTS
+microservices-ingress  <none>   *                 80
+```
+
+Wait a few minutes while GCP provisions the load balancer.
+
+Then you should see something like:
+
+```text
+NAME                   CLASS    HOSTS   ADDRESS        PORTS
+microservices-ingress  <none>   *       34.xxx.xxx.xxx  80
+```
+
+The important value is:
+
+```text
+ADDRESS
+```
+
+That is your **external IP**.
+
+---
+
+# 2. Access your services
+
+Suppose:
+
+```text
+Ingress ADDRESS = 34.100.200.50
+```
+
+Then:
+
+### User service
+
+```bash
+curl http://34.100.200.50/users/1
+```
+
+### Product service
+
+```bash
+curl http://34.100.200.50/products/101
+```
+
+### Order service
+
+```bash
+curl http://34.100.200.50/orders
+```
+
+You can also use your browser:
+
+```text
+http://34.100.200.50/users/1
+```
+
+```text
+http://34.100.200.50/products/101
+```
+
+---
+
+# 3. Test POST order
+
+Use Postman or curl:
+
+```bash
+curl -X POST http://34.100.200.50/orders \
+  -H "Content-Type: application/json" \
+  -d "{\"userId\":\"1\",\"productId\":\"101\",\"quantity\":2}"
+```
+
+The complete flow is:
+
+```text
+                 POST /orders
+                      │
+                      ▼
+             34.100.200.50
+                      │
+                      ▼
+              GCP Load Balancer
+                      │
+                      ▼
+                   Ingress
+                      │
+                 /orders
+                      │
+                      ▼
+               order-service
+                      │
+              ┌───────┴────────┐
+              │                │
+              ▼                ▼
+       user-service      product-service
+              │                │
+              ▼                ▼
+          User Pod         Product Pod
+```
+
+This is a very good demonstration of **Ingress + Service Discovery + Microservice Communication**.
+
+---
+
+# 4. Check the Ingress
+
+Use:
+
+```bash
+kubectl describe ingress microservices-ingress
+```
+
+You'll see information about the load balancer and routing.
+
+Also:
+
+```bash
+kubectl get ingress -o wide
+```
+
+---
+
+# 5. Very important: Ingress does NOT call Pods directly
+
+The architecture is:
+
+```text
+Ingress
+   │
+   ▼
+Service
+   │
+   ▼
+Pod
+```
+
+Not:
+
+```text
+Ingress
+   │
+   ▼
+Pod IP
+```
+
+For example:
+
+```text
+34.100.200.50
+       │
+       ▼
+Ingress
+       │
+       │ /orders
+       ▼
+order-service
+       │
+       ▼
+10.x.x.x Pod
+```
+
+The `order-service` Kubernetes Service takes care of finding the appropriate Pod.
+
+---
+
+# 6. How order-service talks internally
+
+Your Kubernetes environment variables are:
+
+```yaml
+env:
+  - name: PORT
+    value: "3000"
+
+  - name: USER_SERVICE_URL
+    value: "http://user-service:3000"
+
+  - name: PRODUCT_SERVICE_URL
+    value: "http://product-service:3000"
+```
+
+So when the external request reaches:
+
+```text
+http://34.100.200.50/orders
+```
+
+the following happens:
+
+```text
+Client
+  │
+  │ /orders
+  ▼
+Ingress
+  │
+  ▼
+order-service
+  │
+  │ http://user-service:3000/users/1
+  ▼
+user-service
+  │
+  ▼
+User Pod
+
+
+order-service
+  │
+  │ http://product-service:3000/products/101
+  ▼
+product-service
+  │
+  ▼
+Product Pod
+```
+
+---
+
+# 7. How do you know Ingress is working?
+
+Run:
+
+```bash
+kubectl get ingress
+```
+
+Wait until:
+
+```text
+ADDRESS
+34.xxx.xxx.xxx
+```
+
+Then:
+
+```bash
+curl http://34.xxx.xxx.xxx/users/1
+```
+
+If you get the user JSON, you've successfully achieved:
+
+**Internet → GCP Load Balancer → GKE Ingress → Kubernetes Service → Node.js Pod**
+
+Then test:
+
+```bash
+curl http://34.xxx.xxx.xxx/products/101
+```
+
+and finally:
+
+```bash
+curl -X POST http://34.xxx.xxx.xxx/orders \
+  -H "Content-Type: application/json" \
+  -d "{\"userId\":\"1\",\"productId\":\"101\",\"quantity\":2}"
+```
+
+---
+
+## One thing I'd change next
+
+For your **learning project**, this HTTP Ingress is perfect. After you get this working, I'd modify the architecture to:
+
+```text
+                         Internet
+                            │
+                            ▼
+                   GCP Load Balancer
+                            │
+                            ▼
+                         Ingress
+                            │
+                 ┌──────────┼──────────┐
+                 ▼          ▼          ▼
+               users     products    orders
+                 │          │          │
+                 ▼          ▼          ▼
+              Services   Services   Service
+                                       │
+                              ┌────────┴────────┐
+                              ▼                 ▼
+                         user-service     product-service
+                              │                 │
+                              └────────┬────────┘
+                                       │
+                                  PostgreSQL
+```
+
+Then we can add **Helm + HPA + ConfigMap + Secret + PostgreSQL + Redis + Kafka/Pub/Sub**. That will make this much closer to a real enterprise GCP microservices deployment.

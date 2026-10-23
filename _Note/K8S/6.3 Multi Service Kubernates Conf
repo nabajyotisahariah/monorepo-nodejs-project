@@ -1,0 +1,846 @@
+Great. Let's deploy the **3 Node.js microservices to your existing GKE cluster**.
+
+I’ll keep this hands-on so you can run each command and understand what Kubernetes is doing.
+
+## 1. Final architecture
+
+```text
+                         Internet
+                            │
+                            ▼
+                    GCP Load Balancer
+                            │
+                            ▼
+                      GKE Ingress
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+              ▼             ▼             ▼
+        user-service  product-service  order-service
+              │             │             │
+          ClusterIP      ClusterIP      ClusterIP
+              │             │             │
+            Pods          Pods           Pods
+              ▲             ▲             │
+              │             │             │
+              └─────────────┴─────────────┘
+                             │
+                     HTTP Service Calls
+```
+
+The important communication is:
+
+```text
+order-service
+     │
+     ├── HTTP → http://user-service:3000
+     │
+     └── HTTP → http://product-service:3000
+```
+
+---
+
+# 2. Create the Kubernetes manifests
+
+Create this directory:
+
+```bash
+mkdir -p k8s/user
+mkdir -p k8s/product
+mkdir -p k8s/order
+mkdir -p k8s/ingress
+```
+
+Your structure becomes:
+
+```text
+nodejs-microservices/
+│
+├── user-service/
+├── product-service/
+├── order-service/
+│
+└── k8s/
+    ├── user/
+    ├── product/
+    ├── order/
+    └── ingress/
+```
+
+---
+
+# 3. User Deployment
+
+Create:
+
+```text
+k8s/user/deployment.yaml
+```
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: user-service
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: user-service
+
+  template:
+    metadata:
+      labels:
+        app: user-service
+
+    spec:
+      containers:
+        - name: user-service
+
+          image: REGION-docker.pkg.dev/PROJECT_ID/microservices/user-service:1.0
+
+          ports:
+            - containerPort: 3000
+
+          env:
+            - name: PORT
+              value: "3000"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+
+            initialDelaySeconds: 10
+            periodSeconds: 20
+```
+
+Replace:
+
+```text
+REGION
+PROJECT_ID
+```
+
+with your GCP values.
+
+---
+
+# 4. User Service
+
+Create:
+
+```text
+k8s/user/service.yaml
+```
+
+```yaml
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: user-service
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: user-service
+
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+```
+
+Notice:
+
+```yaml
+type: ClusterIP
+```
+
+This means **internal Kubernetes communication**.
+
+The service isn't directly exposed to the Internet.
+
+---
+
+# 5. Product Deployment
+
+`k8s/product/deployment.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: product-service
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: product-service
+
+  template:
+    metadata:
+      labels:
+        app: product-service
+
+    spec:
+      containers:
+        - name: product-service
+
+          image: REGION-docker.pkg.dev/PROJECT_ID/microservices/product-service:1.0
+
+          ports:
+            - containerPort: 3000
+
+          env:
+            - name: PORT
+              value: "3000"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+
+            initialDelaySeconds: 10
+            periodSeconds: 20
+```
+
+---
+
+# 6. Product Service
+
+`k8s/product/service.yaml`
+
+```yaml
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: product-service
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: product-service
+
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+```
+
+---
+
+# 7. Order Deployment
+
+This is the most important Deployment because it communicates with the other services.
+
+`k8s/order/deployment.yaml`
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: order-service
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: order-service
+
+  template:
+    metadata:
+      labels:
+        app: order-service
+
+    spec:
+      containers:
+        - name: order-service
+
+          image: REGION-docker.pkg.dev/PROJECT_ID/microservices/order-service:1.0
+
+          ports:
+            - containerPort: 3000
+
+          env:
+            - name: PORT
+              value: "3000"
+
+            - name: USER_SERVICE_URL
+              value: "http://user-service:3000"
+
+            - name: PRODUCT_SERVICE_URL
+              value: "http://product-service:3000"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+
+            initialDelaySeconds: 10
+            periodSeconds: 20
+```
+
+The critical configuration is:
+
+```yaml
+- name: USER_SERVICE_URL
+  value: "http://user-service:3000"
+
+- name: PRODUCT_SERVICE_URL
+  value: "http://product-service:3000"
+```
+
+This is **Kubernetes service discovery**.
+
+---
+
+# 8. Order Service
+
+`k8s/order/service.yaml`
+
+```yaml
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: order-service
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: order-service
+
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+```
+
+---
+
+# 9. Build the Docker images
+
+From your project root:
+
+```bash
+docker build \
+  -t REGION-docker.pkg.dev/PROJECT_ID/microservices/user-service:1.0 \
+  ./user-service
+```
+
+```bash
+docker build \
+  -t REGION-docker.pkg.dev/PROJECT_ID/microservices/product-service:1.0 \
+  ./product-service
+```
+
+```bash
+docker build \
+  -t REGION-docker.pkg.dev/PROJECT_ID/microservices/order-service:1.0 \
+  ./order-service
+```
+
+Check:
+
+```bash
+docker images
+```
+
+---
+
+# 10. Configure Artifact Registry
+
+Create repository if you haven't already:
+
+```bash
+gcloud artifacts repositories create microservices \
+  --repository-format=docker \
+  --location=REGION
+```
+
+Configure Docker:
+
+```bash
+gcloud auth configure-docker REGION-docker.pkg.dev
+```
+
+Then push:
+
+```bash
+docker push \
+  REGION-docker.pkg.dev/PROJECT_ID/microservices/user-service:1.0
+```
+
+```bash
+docker push \
+  REGION-docker.pkg.dev/PROJECT_ID/microservices/product-service:1.0
+```
+
+```bash
+docker push \
+  REGION-docker.pkg.dev/PROJECT_ID/microservices/order-service:1.0
+```
+
+---
+
+# 11. Connect to your GKE cluster
+
+For example:
+
+```bash
+gcloud container clusters get-credentials YOUR_CLUSTER \
+  --region YOUR_REGION \
+  --project YOUR_PROJECT_ID
+```
+
+Verify:
+
+```bash
+kubectl get nodes
+```
+
+Then:
+
+```bash
+kubectl get pods
+```
+
+---
+
+# 12. Deploy all three services
+
+```bash
+kubectl apply -f k8s/user/
+```
+
+```bash
+kubectl apply -f k8s/product/
+```
+
+```bash
+kubectl apply -f k8s/order/
+```
+
+Check:
+
+```bash
+kubectl get deployments
+```
+
+Expected:
+
+```text
+NAME              READY
+user-service      2/2
+product-service   2/2
+order-service     2/2
+```
+
+Check Pods:
+
+```bash
+kubectl get pods -o wide
+```
+
+You should have six Pods:
+
+```text
+user-service-xxx       Running
+user-service-yyy       Running
+
+product-service-xxx    Running
+product-service-yyy    Running
+
+order-service-xxx      Running
+order-service-yyy      Running
+```
+
+---
+
+# 13. Check Kubernetes Services
+
+```bash
+kubectl get svc
+```
+
+You should see:
+
+```text
+NAME              TYPE        CLUSTER-IP
+user-service      ClusterIP   10.x.x.x
+product-service   ClusterIP   10.x.x.x
+order-service     ClusterIP   10.x.x.x
+```
+
+Now the magic happens.
+
+Kubernetes DNS gives you:
+
+```text
+user-service
+product-service
+order-service
+```
+
+---
+
+# 14. Test microservice communication
+
+This is the **most important exercise**.
+
+Get an order Pod:
+
+```bash
+kubectl get pods
+```
+
+Copy its name.
+
+Then:
+
+```bash
+kubectl exec -it ORDER_POD_NAME -- sh
+```
+
+Inside the container:
+
+```bash
+wget -qO- http://user-service:3000/users/1
+```
+
+You should get:
+
+```json
+{
+  "id": "1",
+  "name": "Nabajyoti",
+  "email": "nabajyoti@example.com"
+}
+```
+
+Then:
+
+```bash
+wget -qO- http://product-service:3000/products/101
+```
+
+You should get:
+
+```json
+{
+  "id": "101",
+  "name": "Laptop",
+  "price": 85000
+}
+```
+
+That demonstrates:
+
+```text
+Order Pod
+   │
+   │ DNS
+   ▼
+user-service
+   │
+   ▼
+User Pod
+```
+
+and:
+
+```text
+Order Pod
+   │
+   │ DNS
+   ▼
+product-service
+   │
+   ▼
+Product Pod
+```
+
+---
+
+# 15. Test the complete business flow
+
+We can temporarily expose `order-service` using port-forward:
+
+```bash
+kubectl port-forward service/order-service 3003:3000
+```
+
+Now from your local machine:
+
+```bash
+curl -X POST http://localhost:3003/orders \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"1","productId":"101","quantity":2}'
+```
+
+The request flow is:
+
+```text
+Your Laptop
+     │
+     │ POST /orders
+     ▼
+order-service
+     │
+     ├──────────────► user-service
+     │                    │
+     │                    ▼
+     │                 User Pod
+     │
+     └──────────────► product-service
+                          │
+                          ▼
+                       Product Pod
+```
+
+And the response comes back through `order-service`.
+
+---
+
+# 16. Why Service is important
+
+Suppose:
+
+```text
+user-service
+```
+
+has:
+
+```text
+Pod A = 10.81.1.10
+Pod B = 10.81.1.11
+```
+
+Tomorrow Pod A dies.
+
+Kubernetes creates:
+
+```text
+Pod C = 10.81.1.20
+```
+
+Your `order-service` doesn't care.
+
+It still calls:
+
+```text
+http://user-service:3000
+```
+
+The Service finds the healthy Pods.
+
+That's one of the fundamental reasons Kubernetes is useful for microservices.
+
+---
+
+# 17. Add Ingress
+
+Once internal communication works, expose the API.
+
+Create:
+
+`k8s/ingress/ingress.yaml`
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: microservices-ingress
+
+spec:
+  rules:
+    - http:
+
+        paths:
+
+          - path: /users
+            pathType: Prefix
+
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 3000
+
+          - path: /products
+            pathType: Prefix
+
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 3000
+
+          - path: /orders
+            pathType: Prefix
+
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 3000
+```
+
+Apply:
+
+```bash
+kubectl apply -f k8s/ingress/ingress.yaml
+```
+
+Check:
+
+```bash
+kubectl get ingress
+```
+
+GKE will provision a Google Cloud Load Balancer.
+
+---
+
+# 18. Final request flow
+
+You will eventually have:
+
+```text
+                       INTERNET
+                           │
+                           ▼
+                  Google Cloud LB
+                           │
+                           ▼
+                      GKE Ingress
+                           │
+             ┌─────────────┼─────────────┐
+             │             │             │
+             ▼             ▼             ▼
+          /users        /products      /orders
+             │             │             │
+             ▼             ▼             ▼
+        user-service  product-service order-service
+             │             │             │
+          ┌──┴──┐       ┌──┴──┐       ┌──┴──┐
+          │     │       │     │       │     │
+         Pod   Pod      Pod   Pod     Pod   Pod
+                                       │
+                              ┌────────┴────────┐
+                              │                 │
+                              ▼                 ▼
+                         user-service    product-service
+```
+
+## 19. One important improvement
+
+For your learning exercise, **HTTP REST communication** is perfect.
+
+For a production architecture, however, I'd eventually introduce:
+
+```text
+                    Microservices
+                         │
+              ┌──────────┴──────────┐
+              │                     │
+          Synchronous          Asynchronous
+              │                     │
+           REST/gRPC          Pub/Sub/Kafka
+              │                     │
+        Request/Response          Events
+```
+
+For example:
+
+```text
+POST /orders
+     │
+     ▼
+order-service
+     │
+     ├── REST → user-service
+     │
+     └── REST → product-service
+     │
+     ▼
+OrderCreated event
+     │
+     ▼
+     Pub/Sub
+     │
+     ├── notification-service
+     ├── inventory-service
+     └── analytics-service
+```
+
+That will take you from a basic Kubernetes exercise to a **real enterprise microservices architecture**.
+
+If you follow this sequence—**Docker → Artifact Registry → GKE → ClusterIP → DNS → Pod-to-Pod communication → Ingress → Helm → HPA → Pub/Sub/Kafka**—you'll cover the core GCP Kubernetes deployment skills you're looking to build.
