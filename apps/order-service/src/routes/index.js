@@ -7,18 +7,18 @@ const router = express.Router();
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || "http://localhost:3001";
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || "http://localhost:3002";
 
-router.get("/api/orders/health", (_req, res) => {
+router.get("/health", (_req, res) => {
   res.json({
     service: "order-service",
     status: "UP"
   });
 });
 
-router.get("/api/orders/order", (_req, res) => {
+router.get("/order", (_req, res) => {
   res.json(getAllOrders());
 });
 
-router.post("/api/orders/order", async (req, res) => {
+router.post("/order", async (req, res) => {
   try {
     const { userId, productId, quantity = 1 } = req.body || {};
 

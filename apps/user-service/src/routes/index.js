@@ -4,18 +4,18 @@ import { getAllUsers, getUserById } from "../services/userService.js";
 
 const router = express.Router();
 
-router.get("/api/users/health", (_req, res) => {
+router.get("/health", (_req, res) => {
   res.json({
     service: "user-service",
     status: "UP"
   });
 });
 
-router.get("/api/users/user", (_req, res) => {
+router.get("/user", (_req, res) => {
   res.json(getAllUsers());
 });
 
-router.get("/api/users/user/:id", (req, res) => {
+router.get("/user/:id", (req, res) => {
   const id = Number(req.params.id);
   const user = getUserById(id);
 
