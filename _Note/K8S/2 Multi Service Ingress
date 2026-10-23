@@ -1,6 +1,9 @@
  **Ingress**, the complete GKE flow becomes:
     $ helm/ecommerce1.0
-    $ kubectl apply -f helm/ecommerce1.0/
+    $ kubectl apply -f helm/ecommerce1.0/user/
+      kubectl apply -f helm/ecommerce1.0/product/
+      kubectl apply -f helm/ecommerce1.0/order/
+    $ kubectl apply -f helm/ecommerce1.0/ingress/
 
 ```text
                          Internet
