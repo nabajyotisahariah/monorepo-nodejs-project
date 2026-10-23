@@ -1,26 +1,137 @@
-I have evaluated the Kubernetes files in the `helm/ecommerce1.0` directory and identified the issue preventing the `{NginxIP}/api/products/product` endpoint from working.
+For your Kubernetes Ingress configuration, you need to replicate the NGINX `proxy_pass ${PRODUCT_SERVICE_URL}/;` behavior. The important detail is that NGINX removes the `/api/products/` prefix and forwards the remaining path to the product service.
 
-### Issue Analysis
-1. **Missing Rewrite Target:** When you make a request to `/api/products/product`, the original `ingress.yaml` was forwarding the exact path `/api/products/product` to the `product-service`. However, based on the application behavior captured in `2 Note`, the microservice expects requests at `/product` (or base paths) and does not know how to handle the `/api/products/...` prefix. This is why it was returning a **404 Not Found**.
-2. **Incorrect Ingress Controller:** The previous ingress configuration was using `kubernetes.io/ingress.class: "gce"` (Google Cloud Load Balancer) which doesn't natively support URL rewriting out of the box like this. Since you are specifically querying an `{NginxIP}`, the ingress class should be configured for Nginx.
+For example:
 
-### Resolution
-I have successfully updated the `ingress.yaml` file (`helm/ecommerce1.0/ingress/ingress.yaml`) to use the **Nginx Ingress Controller** and added the appropriate URL rewrite annotations so that `/api/products/product` seamlessly maps to `/product` in the backend service.
+- Incoming request: `/api/products/product`
+- Forwarded request: `/product`
 
-Here are the changes that were made:
-1. **Updated Ingress Class:** Set `ingressClassName: nginx` and removed the old `gce` class to instruct the NGINX controller to process this ingress resource.
-2. **Added Rewrite Rules:**
-   - Added `nginx.ingress.kubernetes.io/use-regex: "true"`
-   - Added `nginx.ingress.kubernetes.io/rewrite-target: /$2`
-3. **Updated Path Rules with Regex:** Changed the paths to capture the requested URL segments. For example, `/api/products(/|$)(.*)` will capture `/product` and route it directly as `/product` to the container on port 3000.
+## 1. Recommended Ingress configuration for GKE
 
-### Next Steps for You
-You can now apply the updated ingress configurations to your cluster using the following command:
-```bash
-kubectl apply -f helm/ecommerce1.0/ingress/ingress.yaml
+Since your configuration uses `ingressClassName: gce`, you are using the GKE Ingress controller. Unlike NGINX Ingress, GKE's default Ingress does not support arbitrary URL rewrites using annotations.
+
+If your backend services expect paths such as `/product`, use one of the following approaches.
+
+### Option A — Keep the `/api/products` prefix
+
+Use this if your product service accepts `/api/products/product` directly.
+
 ```
 
-Afterward, give the NGINX Ingress Controller a few moments to reload the configuration, and your `curl` command should work as expected and return the product data:
-```bash
-curl --location '{NginxIP}/api/products/product'
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microservices-ingress
+spec:
+  ingressClassName: gce
+  rules:
+    - http:
+        paths:
+          - path: /api/users
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 80
+
+          - path: /api/products
+            pathType: Prefix
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 80
+
+          - path: /api/orders
+            pathType: Prefix
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 80
+
 ```
+
+Expected routing:
+
+| Incoming request        | Backend service   | Path received           |
+| ----------------------- | ----------------- | ----------------------- |
+| `/api/users/user`       | `user-service`    | `/api/users/user`       |
+| `/api/products/product` | `product-service` | `/api/products/product` |
+| `/api/orders/order`     | `order-service`   | `/api/orders/order`     |
+
+Replace port `80` with the actual Kubernetes Service port, if different.
+
+### Option B — Strip the `/api/products` prefix
+
+If you need exactly the same behavior as your NGINX configuration, where `/api/products/product` becomes `/product`, you have two practical choices:
+
+- Use NGINX Ingress with rewrite rules.
+- Use GKE Application Load Balancer URL rewrites through a supported URL rewrite configuration, such as a `GCPBackendPolicy`/`URLRewrite` feature where supported by your GKE version and controller.
+
+The simplest option for your current NGINX-style routing is NGINX Ingress.
+
+## 2. NGINX Ingress configuration with rewrite rules
+
+For an NGINX Ingress controller, use the following:
+
+```
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microservices-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/users(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 80
+
+          - path: /api/products(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 80
+
+          - path: /api/orders(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 80
+
+```
+
+Example routing:
+
+| Client request              | Forwarded path |
+| --------------------------- | -------------- |
+| `/api/products/product`     | `/product`     |
+| `/api/products/product/123` | `/product/123` |
+| `/api/users/profile`        | `/profile`     |
+| `/api/orders/123`           | `/123`         |
+
+This configuration is for the community NGINX Ingress controller, not GKE's `gce` controller.
+
+## 3. Which option should you use?
+
+| Requirement                                                                       | Recommendation                                            |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| You want to retain GKE Ingress                                                    | Option A, if services accept the prefix                   |
+| You need to strip `/api/products/`                                                | NGINX Ingress rewrite or supported GKE URL rewrite        |
+| You want a centralized API gateway with authentication, authorization and routing | Consider an API gateway or Gateway API-based architecture |
+
+My recommendation: If your current cluster uses `ingressClassName: gce`, don't simply add NGINX rewrite annotations—they won't provide the desired behavior. Either update the backend routes to accept the `/api/products` prefix or adopt a controller/configuration that supports path rewriting.

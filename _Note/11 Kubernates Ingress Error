@@ -1,0 +1,67 @@
+Your Kubernetes Events now show the actual cause of the Ingress provisioning failure.
+
+Root cause: GKE is trying to configure a backend called `kube-system-default-http-backend`, but the expected Network Endpoint Group (NEG) does not exist.
+
+The key error is:
+
+```
+Error syncing to GCP: error running backend syncing routine:
+googleapi: Error 404:
+The resource
+'projects/weather-project-prod-511603/zones/asia-south2-a/networkEndpointGroups/k8s1-c1bd0ffd-kube-system-default-http-backend-80-7739e04a'
+was not found
+```
+
+Your three application services successfully attached their endpoints:
+
+- `user-service` — 2 endpoints attached
+- `product-service` — 2 endpoints attached
+- `order-service` — 2 endpoints attached
+
+So the error points to the default HTTP backend resource, not necessarily your application services.
+
+## 1. Check whether the default HTTP backend exists
+
+Run:
+
+```
+kubectl get svc default-http-backend -n kube-system -o yaml
+kubectl get endpoints default-http-backend -n kube-system
+kubectl get pods -n kube-system | grep http
+```
+
+Also inspect its NEG annotation:
+
+```
+kubectl get svc default-http-backend -n kube-system \
+  -o jsonpath='{.metadata.annotations.cloud\.google\.com/neg}{"\n"}'
+```
+
+GKE normally provides a default backend that returns HTTP 404 for requests that don't match your Ingress rules.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.cloud.google.com\&sz=32)
+
+Google Cloud Documentation
+
+
+
+## 2. Check whether the missing NEG exists in Google Cloud
+
+```
+gcloud compute network-endpoint-groups list \
+  --project=weather-project-prod-511603 \
+  --filter="name:k8s1-c1bd0ffd-kube-system-default-http-backend-80-7739e04a"
+```
+
+If the service exists but the NEG is missing, we need to determine why GKE's controller expects that NEG before changing or recreating resources.
+
+## 3. Check the cluster events
+
+```
+kubectl get events -n kube-system \
+  --sort-by=.lastTimestamp
+```
+
+Look for errors involving `default-http-backend`, NEG creation, or the GKE Ingress controller.
+
+Please share the output of Step 1 first. It will tell us whether the default backend Service is missing, has no endpoints, or has a NEG configuration that needs investigation. Don't delete your existing application Services or Ingress yet.
