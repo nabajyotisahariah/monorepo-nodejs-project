@@ -1,4 +1,4 @@
-### GCP Project Creation 
+### GCP Project Creation [Ref ./helm/ecommerce1.1/]
 1. Create a GCP Project 
 
 2. GCP Project list 
@@ -23,7 +23,7 @@
     $ gcloud config get-value project
     weather-project-prod-51160
     ```
-5. Delete a project (Only for reference, don't use it)
+6. Delete a project (Only for reference, don't use it)
   ```bash
   gcloud projects delete weather-project-prod-51160
   ```
@@ -32,87 +32,97 @@
 1. Install docker 
 
 2. Configure Docker authentication
-   $ gcloud auth configure-docker asia-south2-docker.pkg.dev
-    {
-    "credHelpers": {
-        "us-central1-docker.pkg.dev": "gcloud",
-        "asia-south2-docker.pkg.dev": "gcloud"
-    }
-    }
-    Adding credentials for: asia-south2-docker.pkg.dev
-    gcloud credential helpers already registered correctly
-
+  ```bash
+  $ gcloud auth configure-docker asia-south2-docker.pkg.dev
+  {
+  "credHelpers": {
+      "us-central1-docker.pkg.dev": "gcloud",
+      "asia-south2-docker.pkg.dev": "gcloud"
+  }
+  }
+  Adding credentials for: asia-south2-docker.pkg.dev
+  gcloud credential helpers already registered correctly
+  ```
 
 3. Create Artifact Registry repository 
-        [GCP > Artifact Registry > https://console.cloud.google.com/artifacts]
+    [GCP > Artifact Registry > https://console.cloud.google.com/artifacts]
 
-    $ gcloud artifacts repositories create ecommerce-nodejs-app-repo \
-        --repository-format=docker \
-        --location=asia-south2 \
-        --description="Microservices Nodejs"
+  ```bash
+  $ gcloud artifacts repositories create ecommerce-nodejs-app-repo \
+      --repository-format=docker \
+      --location=asia-south2 \
+      --description="Microservices Nodejs"
 
-    Created repository [ecommerce-nodejs-app-repo].
+  Created repository [ecommerce-nodejs-app-repo].
 
-    Verify
-    $ gcloud artifacts repositories list --location=asia-south2    
+  Verify
+  $ gcloud artifacts repositories list --location=asia-south2    
 
-    ARTIFACT_REGISTRY
-    REPOSITORY: ecommerce-nodejs-app-repo
-    FORMAT: DOCKER
-    MODE: STANDARD_REPOSITORY
-    DESCRIPTION: Microservices Nodejs
-    LOCATION: asia-south2
+  ARTIFACT_REGISTRY
+  REPOSITORY: ecommerce-nodejs-app-repo
+  FORMAT: DOCKER
+  MODE: STANDARD_REPOSITORY
+  DESCRIPTION: Microservices Nodejs
+  LOCATION: asia-south2
 
-    Ref: asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo
-    
+  Ref: asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo
+  ```
+
 4. Build the Node.js image from indivisual repo
+  ```bash
+  docker build --no-cache -f apps/order-service/Dockerfile -t order-service:1.0 .
+  docker build --no-cache -f apps/user-service/Dockerfile -t user-service:1.0 .
+  docker build --no-cache -f apps/product-service/Dockerfile -t product-service:1.0 .
 
-    docker build --no-cache -f apps/order-service/Dockerfile -t order-service:1.0 .
-    docker build --no-cache -f apps/user-service/Dockerfile -t user-service:1.0 .
-    docker build --no-cache -f apps/product-service/Dockerfile -t product-service:1.0 .
-
-    Ref
-    docker build --no-cache -f apps/product-service/Dockerfile -t product-service:1.0 .
-    docker run --rm -p 3002:3000 product-service:1.0
-                                                                                                     0.0s
-   $ docker images                                                                                                                                  i Info →   U  In Use
-      IMAGE                 ID             DISK USAGE   CONTENT SIZE   EXTRA
-      order-service:1.0     eebab876bbdb        243MB         59.7MB        
-      product-service:1.0   8a752ba67b9d        243MB         59.7MB        
-      user-service:1.0      0d25d63922ae        243MB         59.7MB      
+  Ref
+  docker build --no-cache -f apps/product-service/Dockerfile -t product-service:1.0 .
+  docker run --rm -p 3002:3000 product-service:1.0
+                                                                                                    0.0s
+  $ docker images                                                                                                                                  i Info →   U  In Use
+    IMAGE                 ID             DISK USAGE   CONTENT SIZE   EXTRA
+    order-service:1.0     eebab876bbdb        243MB         59.7MB        
+    product-service:1.0   8a752ba67b9d        243MB         59.7MB        
+    user-service:1.0      0d25d63922ae        243MB         59.7MB      
+  ```
 
 5. Tag the image
-    docker tag order-service:1.0 \
-        asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0
-    docker tag product-service:1.0 \
-        asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0
-    docker tag user-service:1.0 \
-        asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0
+  ```bash
+  docker tag order-service:1.0 \
+      asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0
+  docker tag product-service:1.0 \
+      asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0
+  docker tag user-service:1.0 \
+      asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0
 
-    $ docker images 
-    IMAGE                                                                                                  ID             DISK USAGE   CONTENT SIZE   EXTRA
-    asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0     d44703495aa0           
-    asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0   10ae86b57621        
-    asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0      2c7dfadd4c54        
-    order-service:1.0                                                                                      d44703495aa0        
-    product-service:1.0                                                                                    10ae86b57621        
-    user-service:1.0                                                                                       2c7dfadd4c54        
-    
+  $ docker images 
+  IMAGE                                                                                                  ID             DISK USAGE   CONTENT SIZE   EXTRA
+  asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0     d44703495aa0           
+  asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0   10ae86b57621        
+  asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0      2c7dfadd4c54        
+  order-service:1.0                                                                                      d44703495aa0        
+  product-service:1.0                                                                                    10ae86b57621        
+  user-service:1.0                                                                                       2c7dfadd4c54        
+  ```
+
 6. Push the image [Push to Artifact Docker Registry]
-    docker push asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0
-    docker push asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0
-    docker push asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0
+  ```bash
+  docker push asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0
+  docker push asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0
+  docker push asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0
+  ```
 -----------------------------
 ### Configuration on Kubernetes
 
 1: Enable Container API using gcloud as container services & Kubernates is a part of container API
+```bash
 	$ gcloud services enable container.googleapis.com
 	Operation "operations/acf.p2-1040682241529-2c36242c-3cce-4fad-b2da-e98d960ecdb6" finished successfully
+```
 
 2: Create a GKE Cluster
 
 	Create a GKE cluster with Autopilot Mode with 3 nodes
-    
+  ```bash
 	$ gcloud container clusters create-auto k8s-cluster --region asia-south2
 
     Creating cluster k8s-cluster in asia-south2... Cluster is being health-checked...
@@ -122,9 +132,10 @@
     LOCATION: asia-south2
     MASTER_VERSION: 1.36.4-gke.1495002
     MASTER_IP: 34.131.167.1
+  ```
 
 3: Connect to the cluster from Cloudshell or VM
-
+```bash
 	$ gcloud container clusters get-credentials k8s-cluster --region asia-south2
     Fetching cluster endpoint and auth data.
     kubeconfig entry generated for k8s-cluster.
@@ -142,10 +153,10 @@
 		
 		instance-k8s-1:~$ gke-gcloud-auth-plugin --version
 		Kubernetes v0.1.0-gke.3-75-ge286783f0
-		
+```
 --------------------------------
 ### Helm Configuration & Deployment
-
+```bash
 1. Basic Commands
     $  helm lint ./helm/ecommerce1.1/
     $ helm list
@@ -160,10 +171,14 @@
     REVISION: 1
     DESCRIPTION: Install complete
 
+  Note:
+      $ helm install microservices1.1 ./helm/ecommerce1.1/
+      "Warning: annotation \"kubernetes.io/ingress.class\" is deprecated, please use 'spec.ingressClassName' instead"
+
 3. Helm Status
-    $ helm list
-    NAME              REVISION        UPDATED            STATUS          CHART                 APP VERSION
-    microservices1.1       1         2026-10-21         deployed        ecommerce1.1-0.1.0      1.0.1  
+$ helm list
+NAME              REVISION        UPDATED            STATUS          CHART                 APP VERSION
+microservices1.1       1         2026-10-21         deployed        ecommerce1.1-0.1.0      1.0.1  
 
 $ kubectl get nodes
 NAME                                         STATUS   ROLES    AGE   VERSION
@@ -175,24 +190,24 @@ gk3-k8s-cluster-nap-5pabsr18-e398ba89-287s   Ready    <none>   63s   v1.36.4-gke
 $ kubectl delete pod order-service-69c85c4b97-jtqtb
 
 $ kubectl get ingress
-NAME                CLASS    HOSTS   ADDRESS          PORTS   AGE
-ecommerce-ingress   <none>   *       136.68.181.136   80      9m17s
+NAME                    CLASS    HOSTS   ADDRESS         PORTS   AGE
+microservices-ingress   <none>   *       136.68.120.27   80      10m
 
-$ kubectl get svc
-NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
-kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   23h
-order-service     ClusterIP   34.118.236.139   <none>        80/TCP    9m22s
-product-service   ClusterIP   34.118.232.120   <none>        80/TCP    9m22s
-user-service      ClusterIP   34.118.232.157   <none>        80/TCP    9m22s
+$ kubectl get svc -o wide
+NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   2d    <none>
+order-service     ClusterIP   34.118.226.189   <none>        80/TCP    10m   app=order-service
+product-service   ClusterIP   34.118.237.117   <none>        80/TCP    10m   app=product-service
+user-service      ClusterIP   34.118.227.180   <none>        80/TCP    10m   app=user-service
 
-$ kubectl get pods
+$ kubectl get pods 
 NAME                               READY   STATUS    RESTARTS   AGE
-order-service-87fdd54f8-45fws      1/1     Running   0          9m27s
-order-service-87fdd54f8-nfk99      1/1     Running   0          9m27s
-product-service-64bcc8bd7c-4qwfv   1/1     Running   0          9m27s
-product-service-64bcc8bd7c-zf88s   1/1     Running   0          9m23s
-user-service-898fc855f-8qppf       1/1     Running   0          9m27s
-user-service-898fc855f-brqfc       1/1     Running   0          9m27s
+order-service-87fdd54f8-hg6h6      1/1     Running   0          10m
+order-service-87fdd54f8-tp25z      1/1     Running   0          10m
+product-service-64bcc8bd7c-crdw8   1/1     Running   0          10m
+product-service-64bcc8bd7c-cws2d   1/1     Running   0          10m
+user-service-898fc855f-5fnwn       1/1     Running   0          10m
+user-service-898fc855f-hl8f5       1/1     Running   0          10m
 
 
 $ kubectl logs user-service-898fc855f-gn45h|more
@@ -208,8 +223,10 @@ $ kubectl run test-client1 --rm -it --image=curlimages/curl -- sh
   [{"id":1,"name":"John"},{"id":2,"name":"David"}]
 
   ~ $ curl --location 'http://order-service:80/order' --header 'Content-Type: application/json'  --data '{"userId":4,"productId":104,"quantity":2}'
-  {"order":{"id":"1","user":{"id":4,"name":"Olivia","address":"24 Cedar Lane"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}~ $ 
+  {"order":{"id":"1","user":{"id":4,"name":"Olivia","address":"24 Cedar Lane"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}} 
 
+  ~ $ curl http://order-service:80/order
+  [{"order":{"id":"1","user":{"id":1,"name":"John","address":"123 Main St"},"product":{"id":104,"name":"Monitor","price":18000},"quantity":2,"totalAmount":36000,"status":"CREATED"}}]
 
 $ kubectl exec -it product-service-64bcc8bd7c-7gf88 -- sh
   /app/apps/product-service #  wget -qO- http://localhost:3000/product
@@ -219,7 +236,18 @@ $ kubectl exec -it user-service-898fc855f-kjm8m -- sh
   /app/apps/user-service # wget -qO- http://localhost:3000/user
   [{"id":1,"name":"John","address":"123 Main St"},{"id":2,"name":"David","address":"456 Oak Ave"}]
 
+### Ingress Endpoint
+curl --location 'http://136.68.120.27/api/users/user'
+curl --location 'http://136.68.120.27/api/products/product'
+curl --location 'http://136.68.120.27/api/products/product/101'
+curl --location 'http://136.68.120.27/api/orders/order' \
+--header 'Content-Type: application/json' \
+--data '{"userId":1,"productId":103,"quantity":2}'
+curl --location 'http://136.68.120.27/api/orders/order'
+```
+
 ### Pods health
+```bash
 $ kubectl describe ingress ecommerce-ingress
 Name:             ecommerce-ingress
 Labels:           app.kubernetes.io/managed-by=Helm
@@ -347,4 +375,31 @@ metadata:
       protocol: TCP
     readinessProbe:
       failureThreshold: 3
+```
 
+### Debugging on Ingress
+
+1. Check whether the default HTTP backend exists
+
+Run:
+```
+kubectl get svc default-http-backend -n kube-system -o yaml
+kubectl get endpoints default-http-backend -n kube-system
+kubectl get pods -n kube-system | grep http
+```
+
+
+2. Check whether the missing NEG exists in Google Cloud
+
+```
+gcloud compute network-endpoint-groups list \
+  --project=weather-project-prod-511603 \
+  --filter="name:k8s1-c1bd0ffd-kube-system-default-http-backend-80-7739e04a"
+```
+
+3. Check the cluster events
+
+```
+kubectl get events -n kube-system \
+  --sort-by=.lastTimestamp
+```
