@@ -4,18 +4,18 @@ import { getAllProducts, getProductById } from "../services/productService.js";
 
 const router = express.Router();
 
-router.get("/health", (_req, res) => {
+router.get("/api/products/health", (_req, res) => {
   res.json({
     service: "product-service",
     status: "UP"
   });
 });
 
-router.get("/product", (_req, res) => {
+router.get("/api/products/product", (_req, res) => {
   res.json(getAllProducts());
 });
 
-router.get("/product/:id", (req, res) => {
+router.get("/api/products/product/:id", (req, res) => {
   const id = Number(req.params.id);
   const product = getProductById(id);
 
