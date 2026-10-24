@@ -1,0 +1,95 @@
+To achieve the same behavior as NGINX `proxy_pass`, where the matching URI prefix is replaced before forwarding the request, you need to configure URL rewriting in your Kubernetes Ingress.
+
+  location /api/users/ {
+        proxy_pass ${USER_SERVICE_URL}/;
+
+What changes are required in nginx config to achived it
+
+-----------------------------------------------------
+
+Your current Ingress uses `ingressClassName: gce`, which means it uses the Google Cloud Application Load Balancer (GCE Ingress). Its annotations do not support NGINX's `rewrite-target` behavior.
+
+## 1. Recommended: Use NGINX Ingress with `rewrite-target`
+
+If you want the same behavior as your NGINX configuration:
+
+```
+location /api/users/ {
+    proxy_pass http://user-service/;
+}
+```
+
+For example, `/api/users/123` is forwarded to `http://user-service/123`.
+
+Use this Kubernetes Ingress configuration with the NGINX Ingress Controller:
+
+```
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microservices-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/users(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 80
+
+          - path: /api/products(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 80
+
+          - path: /api/orders(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 80
+
+```
+
+### How the rewrite works
+
+The pattern `/api/users(/|$)(.*)` captures the portion after `/api/users` in the second capture group, `$2`.
+
+| Incoming request    | Forwarded to the service |
+| ------------------- | ------------------------ |
+| `/api/users/`       | `/`                      |
+| `/api/users/123`    | `/123`                   |
+| `/api/products/456` | `/456`                   |
+| `/api/orders/789`   | `/789`                   |
+
+This is equivalent to replacing the matching location prefix with `/` in your NGINX `proxy_pass` configuration.
+
+Important: This configuration requires an NGINX Ingress Controller installed in your Kubernetes cluster. Changing `ingressClassName` from `gce` to `nginx` alone does not install or configure the controller.
+
+## 2. If you want to keep GCE Ingress on GKE
+
+Your existing configuration uses GCE Ingress:
+
+```
+spec:
+  ingressClassName: gce
+```
+
+GCE Ingress does not support the NGINX `rewrite-target` annotation. To remove the `/api/users` prefix while retaining GKE's Google Cloud Application Load Balancer, you need a different routing design, such as:
+
+- Configure URL rewrites using a supported Google Cloud load-balancing mechanism, such as a URL map with path transformations where supported.
+- Put an NGINX reverse proxy behind the GCE Ingress and let NGINX rewrite paths before forwarding them to your services.
+
+For your Node.js monorepo and three services, NGINX Ingress with `rewrite-target` is the simplest option if you're comfortable switching away from GCE Ingress.
