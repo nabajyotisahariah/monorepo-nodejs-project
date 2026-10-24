@@ -410,6 +410,5 @@ gcloud compute network-endpoint-groups list \
 3. Check the cluster events
 
 ```
-kubectl get events -n kube-system \
-  --sort-by=.lastTimestamp
+kubectl get events -n kube-system --sort-by=.lastTimestamp
 ```
