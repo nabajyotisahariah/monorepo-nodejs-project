@@ -96,7 +96,11 @@ service:
 
 ingress:
   enabled: true
-  
+
+  # Optional name of a pre-reserved global GCE IP address.
+  # Leave empty to let GCE assign an ephemeral public IP.
+  staticIpName: ""
+
   paths:
     - path: /api/users
       service: user-service

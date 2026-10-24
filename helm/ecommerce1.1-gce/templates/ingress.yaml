@@ -5,6 +5,9 @@ metadata:
   name: microservices-ingress
   annotations:
     kubernetes.io/ingress.class: "gce"
+    {{- with .Values.ingress.staticIpName }}
+    kubernetes.io/ingress.global-static-ip-name: {{ . | quote }}
+    {{- end }}
 spec:
   rules:
     - http:

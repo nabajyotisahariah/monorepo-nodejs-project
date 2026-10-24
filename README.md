@@ -187,6 +187,44 @@ Remove the release with:
 helm uninstall ecommerce
 ```
 
+### GCE Ingress public IP and service URLs
+
+The GCE chart creates an external HTTP(S) load balancer. After the ingress is
+provisioned, get its public IP with:
+
+```sh
+kubectl get ingress microservices-ingress
+```
+
+Use the address shown in the `ADDRESS` column to reach the services. The GCE
+Ingress forwards request paths unchanged, so the chart routes these native
+service paths:
+
+| Service | URL |
+| --- | --- |
+| User | `http://<INGRESS_IP>/api/users` and `http://<INGRESS_IP>/api/users/user/<id>` |
+| Product | `http://<INGRESS_IP>/api/products/product` and `http://<INGRESS_IP>/api/products/product/<id>` |
+| Order | `http://<INGRESS_IP>/api/orders/order` |
+
+The order endpoint accepts `POST` requests with `userId`, `productId`, and an
+optional `quantity` JSON field. The Kubernetes services remain `ClusterIP`;
+external traffic enters through the ingress load balancer.
+
+By default GCE assigns an ephemeral public IP. To keep a stable IP, reserve a
+global address and set its resource name as `ingress.staticIpName` in
+`helm/ecommerce1.1-gce/values.yaml` before installing or upgrading the chart:
+
+```sh
+gcloud compute addresses create ecommerce-ingress-ip --global
+gcloud compute addresses describe ecommerce-ingress-ip --global --format="get(address)"
+# Set ingress.staticIpName to ecommerce-ingress-ip in values.yaml
+helm upgrade --install ecommerce ./helm/ecommerce1.1-gce/
+kubectl get ingress microservices-ingress
+```
+
+The `gcloud` command prints the reserved public IP; the ingress `ADDRESS` is
+the address to use for the service URLs above.
+
 ### Service Test using Docker
 ```
 $ docker exec monorepo-nodejs-project-nginx-1 sh -c "curl -X POST -H 'Content-Type: application/json' -d '{\"userId\":5,\"productId\":103,\"quantity\":2}' http://order-service:3000/order"
