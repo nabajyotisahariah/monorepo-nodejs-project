@@ -1,0 +1,120 @@
+#Ref
+#Docker image:
+# order   : asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/order-service:1.0
+# product : asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0
+# user    : asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0
+
+# helm lint ./helm/ecommerce1.1/
+# $ helm list
+# $ helm install microservices1.1 ./helm/ecommerce1.1/
+# $ helm uninstall microservices1.1
+
+global:
+  image:
+    registry: asia-south2-docker.pkg.dev
+    project: weather-project-prod-511603
+    repository: ecommerce-nodejs-app-repo
+    pullPolicy: IfNotPresent
+
+services:
+
+  user:
+    name: user-service
+    replicas: 2
+
+    image:
+      repository: user-service
+      tag: "1.0"
+
+    port: 3000
+
+    env:
+      ORDER_SERVICE_URL: http://order-service:80
+      USER_SERVICE_URL: http://user-service:80
+      PRODUCT_SERVICE_URL: http://product-service:80
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  product:
+    name: product-service
+    replicas: 2
+
+    image:
+      repository: product-service
+      tag: "1.0"
+
+    port: 3000
+
+    env:
+      ORDER_SERVICE_URL: http://order-service:80
+      USER_SERVICE_URL: http://user-service:80
+      PRODUCT_SERVICE_URL: http://product-service:80
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  order:
+    name: order-service
+    replicas: 2
+
+    image:
+      repository: order-service
+      tag: "1.0"
+
+    port: 3000
+
+    env:
+      ORDER_SERVICE_URL: http://order-service:80
+      USER_SERVICE_URL: http://user-service:80
+      PRODUCT_SERVICE_URL: http://product-service:80
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+
+service:
+  type: ClusterIP         #For Ingress load Balancing
+  #type: LoadBalancer     #For without Ingress load Balancing
+  port: 80
+
+
+ingress:
+  enabled: true
+  
+  paths:
+    - path: /api/users
+      service: user-service
+
+    - path: /api/products
+      service: product-service
+
+    - path: /api/orders
+      service: order-service
+
+
+probes:
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+  liveness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 20

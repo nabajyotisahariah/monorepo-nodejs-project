@@ -1,0 +1,24 @@
+
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microservices-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          {{- range .Values.ingress.paths }}
+          - path: {{ printf "%s(/|$)(.*)" .path | quote }}
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ .service }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+{{- end }}
