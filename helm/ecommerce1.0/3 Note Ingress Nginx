@@ -1,0 +1,205 @@
+$ ls helm/ecommerce1.0
+ingress  Note  order  product  user
+
+$ kubectl apply -f helm/ecommerce1.0/user/
+kubectl apply -f helm/ecommerce1.0/product/
+kubectl apply -f helm/ecommerce1.0/order/
+
+deployment.apps/user-service created
+service/user-service created
+deployment.apps/product-service created
+service/product-service created
+deployment.apps/order-service created
+service/order-service created
+
+$ kubectl apply -f helm/ecommerce1.0/ingress-nginx/
+ingress.networking.k8s.io/microservices-ingress created
+
+$ kubectl get ingress
+NAME                    CLASS    HOSTS   ADDRESS          PORTS   AGE
+microservices-ingress   <none>   *       136.68.181.136   80      54m
+
+  Note: It takes some time for the Public IP
+
+$ kubectl get svc
+NAME              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+kubernetes        ClusterIP   34.118.224.1     <none>        443/TCP   47h
+order-service     ClusterIP   34.118.238.106   <none>        80/TCP    59s
+product-service   ClusterIP   34.118.237.27    <none>        80/TCP    60s
+user-service      ClusterIP   34.118.230.94    <none>        80/TCP    61s
+
+
+$ kubectl get pods
+NAME                              READY   STATUS    RESTARTS   AGE
+order-service-bfb89d9b4-9rkpj     0/1     Running   0          23s
+order-service-bfb89d9b4-zlz5z     0/1     Running   0          23s
+product-service-7586cc4d9-f954s   0/1     Running   0          23s
+product-service-7586cc4d9-wfqn8   0/1     Running   0          24s
+user-service-7dd46c4d8c-72tph     0/1     Running   0          26s
+user-service-7dd46c4d8c-zmxbx     0/1     Running   0          25s
+
+Ingress Api endpoints
+curl --location 'http://136.68.181.136/api/users/user'
+curl --location 'http://136.68.181.136/api/products/product'
+curl --location 'http://136.68.181.136/api/products/product/101'
+curl --location 'http://136.68.181.136/api/orders/order' \
+--header 'Content-Type: application/json' \
+--data '{"userId":1,"productId":103,"quantity":2}'
+curl --location 'http://136.68.181.136/api/orders/order'
+
+$ kubectl logs order-service-7f5bbf679d-bfds4 
+
+> order-service@1.0.0 start /app/apps/order-service
+> node dist/server.js
+
+[INFO] Order service running on port 3000 Service Start 23/10/2026, 04:02:26
+[INFO] HTTP GET /health 200
+[INFO] HTTP GET /health 200
+[INFO] HTTP GET /health 200
+
+### Check Ingress events and backend health
+
+$ kubectl describe ingress microservices-ingress
+Name:             microservices-ingress
+Labels:           <none>
+Namespace:        default
+Address:          136.68.88.32
+Ingress Class:    gce
+Default backend:  <default>
+Rules:
+  Host        Path  Backends
+  ----        ----  --------
+  *           
+              /api/users      user-service:80 (10.80.2.24:3000,10.80.2.25:3000)
+              /api/products   product-service:80 (10.80.2.27:3000,10.80.2.26:3000)
+              /api/orders     order-service:80 (10.80.2.28:3000,10.80.2.29:3000)
+              kubernetes.io/ingress.class: gce
+Events:
+  Type    Reason     Age                  From                     Message
+  ----    ------     ----                 ----                     -------
+  Normal  Sync       3m15s                loadbalancer-controller  UrlMap "k8s2-um-e9moa925-default-microservices-ingress-k2kzs0k5" created
+  Normal  Sync       3m12s                loadbalancer-controller  TargetProxy "k8s2-tp-e9moa925-default-microservices-ingress-k2kzs0k5" created
+  Normal  Sync       2m49s                loadbalancer-controller  ForwardingRule "k8s2-fr-e9moa925-default-microservices-ingress-k2kzs0k5" created
+  Normal  IPChanged  2m49s                loadbalancer-controller  IP is now 136.68.88.32
+  Normal  Sync       2m23s (x5 over 11m)  loadbalancer-controller  Scheduled for sync
+  
+2. Test the actual request routing
+  Run these commands from Cloud Shell:
+  curl -i http://136.68.88.32/api/users
+  curl -i http://136.68.88.32/api/products
+  curl -i http://136.68.88.32/api/orders
+
+3. Check load-balancer request logs
+  GKE Ingress does not have a dedicated controller Pod for you to inspect with kubectl logs. Instead, use Cloud Logging:
+
+gcloud logging read \
+  'resource.type="http_load_balancer"' \
+  --project=weather-project-prod-511603 \
+  --limit=20 \
+  --format="table(timestamp,httpRequest.requestMethod,httpRequest.requestUrl,httpRequest.status)"
+
+  TIMESTAMP: 2026-10-22T18:33:39.063245Z
+  REQUEST_METHOD: GET
+  REQUEST_URL: http://136.68.181.136/api/products/product
+  STATUS: 404
+
+4. Check your Node.js application logs
+
+kubectl logs deployment/user-service --tail=50
+kubectl logs deployment/product-service --tail=50
+kubectl logs deployment/order-service --tail=50
+
+To follow order-service logs continuously:
+kubectl logs -f deployment/order-service
+
+### Delete Services
+  1. Delete the Ingress first
+   kubectl delete ingress microservices-ingress
+
+  2. Delete the Services
+  kubectl delete svc user-service product-service order-service
+
+  3. Delete the Pods
+  kubectl delete deployment user-service product-service order-service
+
+  4. Verify everything is removed
+  kubectl get pods
+  kubectl get svc
+  kubectl get ingress
+  kubectl get deployments
+
+  Alternative: Delete everything created by your Kubernetes YAML files
+    kubectl delete -f helm/ecommerce1.0/user/
+
+### Ingress Configguration
+$ kubectl get ingress microservices-ingress -o yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"kubernetes.io/ingress.class":"gce"},"name":"microservices-ingress","namespace":"default"},"spec":{"ingressClassName":"gce","rules":[{"http":{"paths":[{"backend":{"service":{"name":"user-service","port":{"number":80}}},"path":"/api/users","pathType":"Prefix"},{"backend":{"service":{"name":"product-service","port":{"number":80}}},"path":"/api/products","pathType":"Prefix"},{"backend":{"service":{"name":"order-service","port":{"number":80}}},"path":"/api/orders","pathType":"Prefix"}]}}]}}
+    kubernetes.io/ingress.class: gce
+  creationTimestamp: "2026-10-23T05:31:44Z"
+  finalizers:
+  - networking.gke.io/ingress-finalizer-V2
+  generation: 1
+  name: microservices-ingress
+  namespace: default
+  resourceVersion: "1792733504727263019"
+  uid: 6c105070-adbc-4f31-aa33-7bb4c46b1ea4
+spec:
+  ingressClassName: gce
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: user-service
+            port:
+              number: 80
+        path: /api/users
+        pathType: Prefix
+      - backend:
+          service:
+            name: product-service
+            port:
+              number: 80
+        path: /api/products
+        pathType: Prefix
+      - backend:
+          service:
+            name: order-service
+            port:
+              number: 80
+        path: /api/orders
+        pathType: Prefix
+status:
+  loadBalancer: {}
+
+### Debugging on Ingress
+
+1. Check whether the default HTTP backend exists
+
+Run:
+```
+kubectl get svc default-http-backend -n kube-system -o yaml
+kubectl get endpoints default-http-backend -n kube-system
+kubectl get pods -n kube-system | grep http
+```
+
+
+2. Check whether the missing NEG exists in Google Cloud
+
+```
+gcloud compute network-endpoint-groups list \
+  --project=weather-project-prod-511603 \
+  --filter="name:k8s1-c1bd0ffd-kube-system-default-http-backend-80-7739e04a"
+```
+
+3. Check the cluster events
+
+```
+kubectl get events -n kube-system \
+  --sort-by=.lastTimestamp
+```
