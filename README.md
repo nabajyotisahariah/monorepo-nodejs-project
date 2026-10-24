@@ -184,7 +184,7 @@ helm install ecommerce ./helm/ecommerce1.1-gce/
 Remove the release with:
 
 ```sh
-helm uninstall ecommerce
+helm uninstall ecommerce1.1
 ```
 
 ### GCE Ingress public IP and service URLs
