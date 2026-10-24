@@ -1,0 +1,119 @@
+## 1. Explanation of each directive
+
+```
+location /api/orders/ {
+    proxy_pass ${ORDER_SERVICE_URL}/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+1\. `location /api/orders/`
+
+Matches incoming URLs that start with `/api/orders/`.
+
+Example: `/api/orders/123` or `/api/orders/health`.
+
+2\. `proxy_pass ${ORDER_SERVICE_URL}/;`
+
+Forwards the request to the Order Service.
+
+`${ORDER_SERVICE_URL}` is an environment-variable placeholder, typically replaced by your deployment or entrypoint script with the actual backend URL.
+
+The trailing `/` is important because it affects how NGINX constructs the forwarded path.
+
+3\. `proxy_set_header Host $host;`
+
+Passes the original client's hostname to the backend.
+
+Example: `api.example.com`.
+
+4\. `proxy_set_header X-Real-IP $remote_addr;`
+
+Passes the IP address of the client that connected to NGINX.
+
+This helps with application logging, auditing, and troubleshooting.
+
+5\. `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`
+
+Preserves the existing `X-Forwarded-For` chain and appends the connecting client's IP address.
+
+This is useful when requests pass through multiple proxies or load balancers.
+
+6\. `proxy_set_header X-Forwarded-Proto $scheme;`
+
+Passes the protocol used by the client to reach NGINX, usually `http` or `https`.
+
+Applications can use this information to generate correct URLs or handle secure cookies.
+
+## 2. How request routing works
+
+Suppose your environment variable resolves to:
+
+```
+ORDER_SERVICE_URL=http://order-service:3000
+```
+
+The request flow is:
+
+Client / Frontend
+
+GET /api/orders/123
+
+NGINX Reverse Proxy
+
+Matches `/api/orders/`
+
+Forwards request and headers
+
+Order Service
+
+GET /123
+
+Processes the request and returns a response
+
+### Important: the trailing slash changes the path
+
+Because your `location` ends with `/` and your `proxy_pass` URL also ends with `/`, NGINX replaces the matching location prefix with the URI portion of the upstream URL.
+
+Assuming `ORDER_SERVICE_URL` is `http://order-service:3000`:
+
+| Incoming request     | Forwarded upstream path |
+| -------------------- | ----------------------- |
+| `/api/orders/`       | `/`                     |
+| `/api/orders/123`    | `/123`                  |
+| `/api/orders/health` | `/health`               |
+
+This means the `/api/orders/` prefix is stripped before the request reaches the Order Service.
+
+If your Order Service expects routes such as `/api/orders/123`, this configuration would not preserve the expected path.
+
+## 3. Which configuration should you use?
+
+Option A — Strip `/api/orders/` (your current behavior)
+
+```
+location /api/orders/ {
+    proxy_pass http://order-service:3000/;
+}
+```
+
+The backend receives `/123` for `/api/orders/123`.
+
+Option B — Preserve `/api/orders/`
+
+```
+location /api/orders/ {
+    proxy_pass http://order-service:3000;
+}
+```
+
+The backend receives `/api/orders/123` for `/api/orders/123`.
+
+The key distinction is the trailing slash after the upstream URL: removing it preserves the original request URI in this configuration.
+
+My recommendation: For your Node.js microservices architecture, use Option A if the Order Service exposes routes such as `/123` and `/health`. Use Option B if it exposes routes such as `/api/orders/123`.
+
+One deployment detail: `${ORDER_SERVICE_URL}` is not automatically expanded by standard NGINX configuration parsing. Your container startup process must substitute it (for example, using `envsubst`) before NGINX loads the configuration.

@@ -1,3 +1,18 @@
+# proxy_pass ${USER_SERVICE_URL}/;
+# Because your location ends with / and your proxy_pass URL also ends with /,
+# NGINX replaces the matching location prefix with the URI portion of the upstream URL.
+
+# proxy_pass ${USER_SERVICE_URL}; 
+# Without the trailing slash: the original URI is preserved. 
+# With the trailing slash: the matching location prefix is replaced by /
+
+# proxy_pass	                Incoming path	        Upstream path
+# http://user-service:3000	    /api/users/123	        /api/users/123
+# http://user-service:3000/	    /api/users/123	        /123
+
+#Application level
+# app.use(routes);                //Ref - nginx.conf proxy_pass ${USER_SERVICE_URL}/;
+# app.use("/api/users", routes);  //Ref - nginx.conf proxy_pass ${USER_SERVICE_URL};
 
 server {
     listen 80;
@@ -10,7 +25,8 @@ server {
     }
 
     location /api/users/ {
-        proxy_pass ${USER_SERVICE_URL}/;
+        #proxy_pass ${USER_SERVICE_URL}/;
+        proxy_pass ${USER_SERVICE_URL};     
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -18,7 +34,8 @@ server {
     }
 
     location /api/products/ {
-        proxy_pass ${PRODUCT_SERVICE_URL}/;
+        #proxy_pass ${PRODUCT_SERVICE_URL}/;
+        proxy_pass ${PRODUCT_SERVICE_URL};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -26,7 +43,8 @@ server {
     }
 
     location /api/orders/ {
-        proxy_pass ${ORDER_SERVICE_URL}/;
+        #proxy_pass ${ORDER_SERVICE_URL}/;
+        proxy_pass ${ORDER_SERVICE_URL};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
