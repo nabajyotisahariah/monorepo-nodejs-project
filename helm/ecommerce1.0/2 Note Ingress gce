@@ -200,6 +200,10 @@ gcloud compute network-endpoint-groups list \
 3. Check the cluster events
 
 ```
-kubectl get events -n kube-system \
-  --sort-by=.lastTimestamp
+kubectl get events -n kube-system --sort-by=.lastTimestamp
+
+  kube-system       3m4s        Normal    ScaledUpGroup                            configmap/cluster-autoscaler-status                           Scale-up: group https://www.googleapis.com/compute/v1/projects/weather-project-prod-511603/zones/asia-south2-b/instanceGroups/gk3-k8s-cluster-nap-dyk49il2-7d78868f-grp size set to 2 instead of 1 (max: 1000)
+kube-system       2m34s       Warning   ScaleUpFailed                            configmap/cluster-autoscaler-status                           Failed adding 1 nodes to group https://www.googleapis.com/compute/v1/projects/weather-project-prod-511603/zones/asia-south2-b/instanceGroups/gk3-k8s-cluster-nap-dyk49il2-7d78868f-grp due to OutOfResource.QUOTA_EXCEEDED; source errors: Instance 'gk3-k8s-cluster-nap-dyk49il2-7d78868f-dvdq' creation failed: Quota 'SSD_TOTAL_GB' exceeded.  Limit: 500.0 in region asia-south2.
+kube-system       70s         Normal    UpdateRedirectService                    redirectservice/default                                       deleted redirect service obj default
+nabajyotisahariah009@cloudshell:~/monorepo-nodejs-project (weather-project-prod-511603)$ 
 ```

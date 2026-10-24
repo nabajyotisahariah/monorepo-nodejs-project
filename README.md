@@ -150,12 +150,12 @@ from the order service container.
 
 ## Kubernetes with Helm
 
-The chart is in `helm/ecommerce1.1`. Update the image registry and image tags in
-`helm/ecommerce1.1/values.yaml` for your cluster, then validate and install it:
+The chart is in `helm/ecommerce1.1-gce`. Update the image registry and image tags in
+`helm/ecommerce1.1-gce/values.yaml` for your cluster, then validate and install it:
 
 ```sh
-helm lint ./helm/ecommerce1.1/
-helm install ecommerce ./helm/ecommerce1.1/
+helm lint ./helm/ecommerce1.1-gce/
+helm install ecommerce ./helm/ecommerce1.1-gce/
 ```
 
 Remove the release with:

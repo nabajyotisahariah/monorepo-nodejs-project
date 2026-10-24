@@ -1,5 +1,5 @@
 ### Helm Chart Deployment for NodeJS Monorepo MicroServices 
-[Ref ./helm/ecommerce1.1/]
+[Ref ./helm/ecommerce1.1-gce/]
 
 ```bash
 1. Create a GCP Project 
@@ -158,15 +158,15 @@ Note:
 
 1. Basic Commands
 ```bash
-    $  helm lint ./helm/ecommerce1.1/
+    $  helm lint ./helm/ecommerce1.1-gce/
     $ helm list
-    $ helm install microservices1.1 ./helm/ecommerce1.1/
+    $ helm install microservices1.1 ./helm/ecommerce1.1-gce/
     $ helm uninstall microservices1.1
 ```
 
 2. Install helm Service   
 ```bash 
-    $ helm install microservices1.1 ./helm/ecommerce1.1/
+    $ helm install microservices1.1 ./helm/ecommerce1.1-gce/
     NAME: microservices1.1
     NAMESPACE: default
     STATUS: deployed
@@ -174,7 +174,7 @@ Note:
     DESCRIPTION: Install complete
 
   Note:
-      $ helm install microservices1.1 ./helm/ecommerce1.1/
+      $ helm install microservices1.1 ./helm/ecommerce1.1-gce/
       "Warning: annotation \"kubernetes.io/ingress.class\" is deprecated, please use 'spec.ingressClassName' instead"
 ```
 

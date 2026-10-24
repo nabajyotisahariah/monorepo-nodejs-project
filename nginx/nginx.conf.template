@@ -9,7 +9,7 @@
 # proxy_pass	                Incoming path	        Upstream path       Application level               ingressClassName    Docker      Ingress 
 # http://user-service:3000/	    /api/users/123	        /123                app.use(routes);                   gce                 No        No
 # http://user-service:3000	    /api/users/123	        /api/users/123      app.use("/api/users", routes)      gce                 Yes        Yes
-# Ref helm/ecommerce1.0/ingress/ingress.yaml or helm/ecommerce1.1/
+# Ref helm/ecommerce1.0/ingress/ingress.yaml or helm/ecommerce1.1-gce/
 
 # NGINX proxy_pass http://user-service:3000/, where the matching URI prefix is replaced before forwarding the request, 
 # The Ingress uses ingressClassName: gce, which means it uses the Google Cloud Application Load
