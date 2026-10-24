@@ -1,24 +1,26 @@
 # Node.js E-commerce Microservices Monorepo
 
-A pnpm workspace with an API gateway, user, product, and order services, plus
-shared configuration, model, and logger packages. The order service retrieves
-user and product data from their services when creating an order. Orders are
-stored in memory and are lost when the order service restarts.
+A pnpm workspace containing an API gateway, user, product, and order services,
+and shared configuration, model, and logger packages. The order service
+retrieves user and product data from their services when creating an order.
+Orders are stored in memory and are lost when the order service restarts.
 
 ## Workspace layout
 
 ```text
 apps/
-  api-gateway/        TypeScript API gateway (port 82)
-  user-service/       User API (TypeScript entry point, JavaScript routes)
-  product-service/    Product API (TypeScript entry point, JavaScript routes)
+  api-gateway/        TypeScript API gateway
+  user-service/       User API
+  product-service/    Product API
   order-service/      Order API and user/product service calls
 packages/
   config/             Shared environment configuration
   model/              Shared User, Product, and Order types
   logger/             Shared logger and date formatter
+nginx/                Nginx reverse-proxy configuration
 helm/
-  ecommerce1.1/       Kubernetes Helm chart
+  ecommerce1.1-gce/   Helm chart for GCE Ingress
+  ecommerce1.1-nginx/ Helm chart for Nginx Ingress
 ```
 
 The services use shared types from `@packages/model` and logging from
@@ -55,12 +57,12 @@ pnpm --filter product-service dev
 pnpm --filter order-service dev
 ```
 
-The gateway uses nodemon to restart when its TypeScript source changes. The
-other services use `tsx watch` for development. The order service's script sets
-its user and product service URLs to `http://localhost:3001` and
+The gateway uses nodemon to restart when its TypeScript source changes; the
+other services use `tsx watch`. The order service's development script points
+to the local user and product services at `http://localhost:3001` and
 `http://localhost:3002`.
 
-To build and start the workspace instead:
+To build and start the workspace:
 
 ```sh
 pnpm build
@@ -68,25 +70,23 @@ pnpm start
 ```
 
 Each service's build writes JavaScript to its `dist/` folder, and its start
-script runs `dist/server.js`. The Dockerfiles build these outputs into the
-service images.
+script runs `dist/server.js`.
 
 ## Services and API
 
 | Service | Local URL | Routes |
 | --- | --- | --- |
-| API Gateway | `http://localhost:82` | Proxies the user, product, and order routes |
+| API Gateway | `http://localhost:82` | `/api/users`, `/api/products`, `/api/orders` |
 | User | `http://localhost:3001` | `GET /health`, `GET /user`, `GET /user/:id` |
 | Product | `http://localhost:3002` | `GET /health`, `GET /product`, `GET /product/:id` |
 | Order | `http://localhost:3003` | `GET /health`, `GET /order`, `POST /order` |
 
-The gateway and Docker Compose proxy use `/api/users`, `/api/products`, and
-`/api/orders` prefixes, forwarding the remaining path to the corresponding
-service. For example, the user list can be requested directly at
+The gateway forwards the path after each prefix to the corresponding service.
+For example, the user list is available directly at
 `http://localhost:3001/user` or through the gateway at
 `http://localhost:82/api/users/user`.
 
-Check health and list catalog items:
+Check service health and list users or products:
 
 ```sh
 curl http://localhost:3001/health
@@ -97,8 +97,9 @@ curl http://localhost:3001/user
 curl http://localhost:3002/product
 ```
 
-Create an order by providing integer `userId` and `productId` values.
-`quantity` is optional and defaults to `1`:
+Create an order with integer `userId` and `productId` values. `quantity` is
+optional and defaults to `1`; it must be a positive integer when supplied.
+For example:
 
 ```sh
 curl -X POST http://localhost:3003/order \
@@ -106,7 +107,7 @@ curl -X POST http://localhost:3003/order \
   -d "{\"userId\":1,\"productId\":101,\"quantity\":2}"
 ```
 
-The API gateway can be used in place of the direct order-service URL:
+The gateway can be used instead of calling the order service directly:
 
 ```sh
 curl -X POST http://localhost:82/api/orders/order \
@@ -116,8 +117,10 @@ curl -X POST http://localhost:82/api/orders/order \
 curl http://localhost:82/api/orders/order
 ```
 
-An order response includes the resolved user and product, quantity, total, and
-status. Repeating an order for the same user and product returns `409`.
+A successful order request returns `201` with the order's resolved user and
+product, quantity, total amount, and status. Invalid input returns `400`; a
+missing user or product also returns `400`. Creating another order for the
+same user and product returns `409`.
 
 ## Docker Compose
 
@@ -127,8 +130,15 @@ Build and start the services and Nginx gateway:
 docker compose up --build -d
 ```
 
-The gateway is available on `http://localhost:82`. View logs or stop the
-services with:
+The gateway is available at `http://localhost:82`. For example, check its
+health and request the user list through it:
+
+```sh
+curl http://localhost:82/health
+curl http://localhost:82/api/users/user
+```
+
+View logs or stop the services with:
 
 ```sh
 docker compose logs -f
@@ -148,10 +158,23 @@ Each service container listens on port `3000`. In a container deployment,
 configure `USER_SERVICE_URL` and `PRODUCT_SERVICE_URL` with addresses reachable
 from the order service container.
 
+For the environment-driven Compose configuration, provide the required
+`USER_SERVICE_URL`, `PRODUCT_SERVICE_URL`, and `ORDER_SERVICE_URL` values in a
+`.env` file and start that Compose file explicitly:
+
+```sh
+docker compose --env-file .env -f docker-compose-env.yml up --build -d
+```
+
 ## Kubernetes with Helm
 
-The chart is in `helm/ecommerce1.1-gce`. Update the image registry and image tags in
-`helm/ecommerce1.1-gce/values.yaml` for your cluster, then validate and install it:
+Choose the chart matching your cluster's Ingress controller:
+
+- `helm/ecommerce1.1-gce` for GCE Ingress
+- `helm/ecommerce1.1-nginx` for Nginx Ingress
+
+Update the image registry and tags in the chosen chart's `values.yaml`, then
+lint and install it. For example, with GCE Ingress:
 
 ```sh
 helm lint ./helm/ecommerce1.1-gce/
@@ -195,11 +218,12 @@ The root `package.json` provides these workspace commands:
 
 | Command | Purpose |
 | --- | --- |
-| `pnpm dev` | Run each service's development script in parallel |
-| `pnpm build` | Build or type-check each workspace service |
-| `pnpm start` | Run each service's start script in parallel |
+| `pnpm dev` | Run workspace development scripts in parallel |
+| `pnpm build` | Build each workspace package that defines a build script |
+| `pnpm start` | Run workspace start scripts in parallel |
 | `pnpm lint` | Run service lint scripts |
-| `pnpm test` | Run service test scripts |
+| `pnpm test` | Run automated service tests |
 
-The service test scripts are currently placeholders; no automated service test
-suite is configured yet.
+User, product, and order service tests use Node's built-in test runner through
+`tsx`. They cover catalog lookups and order creation, duplicate detection, and
+missing user or product responses.
