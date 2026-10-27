@@ -2,7 +2,7 @@ import express from "express";
 import { createProxyMiddleware } from "http-proxy-middleware";
 
 const app = express();
-const PORT = process.env.PORT || 82
+const PORT = process.env.PORT || 80
 
 const USER_SERVICE_URL =
   process.env.USER_SERVICE_URL ?? "http://localhost:3001";

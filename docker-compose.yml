@@ -15,7 +15,7 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "82:80"
+      - "80:80"
     environment:
       USER_SERVICE_URL: http://user-service:3000
       PRODUCT_SERVICE_URL: http://product-service:3000
