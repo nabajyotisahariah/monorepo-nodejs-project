@@ -265,3 +265,18 @@ The root `package.json` provides these workspace commands:
 User, product, and order service tests use Node's built-in test runner through
 `tsx`. They cover catalog lookups and order creation, duplicate detection, and
 missing user or product responses.
+
+ ### Google Cloud Compute Engine Logs
+ Google Cloud Ops Agent on Compute Engine VMs (such as instance-ec2 in your project) only collects standard system logs (like /var/log/syslog and /var/log/messages) and does not automatically harvest logs from container runtimes like Docker.
+
+ Configure Docker to use the gcplogs Logging Driver (Alternative)
+Alternatively, you can instruct the Docker daemon to native-stream all logs directly to Google Cloud Logging by using Google's native logging driver.
+
+Create or edit /etc/docker/daemon.json on the VM:
+{
+  "log-driver": "gcplogs"
+}
+
+Restart the Docker service (this will temporarily stop running containers):
+
+sudo systemctl restart docker
