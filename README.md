@@ -47,7 +47,7 @@ pnpm dev
 ```
 
 This starts the user service on port `3001`, product service on `3002`, order
-service on `3003`, and API gateway on `82`. Each service can also be started
+service on `3003`, and API gateway on `80`. Each service can also be started
 individually:
 
 ```sh
@@ -76,7 +76,7 @@ script runs `dist/server.js`.
 
 | Service | Local URL | Routes |
 | --- | --- | --- |
-| API Gateway | `http://localhost:82` | `/api/users`, `/api/products`, `/api/orders` |
+| API Gateway | `http://localhost` | `/api/users`, `/api/products`, `/api/orders` |
 | User | `http://localhost:3001` | `GET /health`, `GET /user`, `GET /user/:id` |
 | Product | `http://localhost:3002` | `GET /health`, `GET /product`, `GET /product/:id` |
 | Order | `http://localhost:3003` | `GET /health`, `GET /order`, `POST /order` |
@@ -84,7 +84,7 @@ script runs `dist/server.js`.
 The gateway forwards the path after each prefix to the corresponding service.
 For example, the user list is available directly at
 `http://localhost:3001/user` or through the gateway at
-`http://localhost:82/api/users/user`.
+`http://localhost/api/users/user`.
 
 Check service health and list users or products:
 
@@ -110,11 +110,11 @@ curl -X POST http://localhost:3003/order \
 The gateway can be used instead of calling the order service directly:
 
 ```sh
-curl -X POST http://localhost:82/api/orders/order \
+curl -X POST http://localhost/api/orders/order \
   -H "Content-Type: application/json" \
   -d "{\"userId\":1,\"productId\":101,\"quantity\":2}"
 
-curl http://localhost:82/api/orders/order
+curl http://localhost/api/orders/order
 ```
 
 A successful order request returns `201` with the order's resolved user and
@@ -130,12 +130,12 @@ Build and start the services and Nginx gateway:
 docker compose up --build -d
 ```
 
-The gateway is available at `http://localhost:82`. For example, check its
+The gateway is available at `http://localhost`. For example, check its
 health and request the user list through it:
 
 ```sh
-curl http://localhost:82/health
-curl http://localhost:82/api/users/user
+curl http://localhost/health
+curl http://localhost/api/users/user
 ```
 
 View logs or stop the services with:
