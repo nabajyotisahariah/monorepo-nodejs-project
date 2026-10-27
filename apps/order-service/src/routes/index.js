@@ -8,6 +8,8 @@ const USER_SERVICE_URL = process.env.USER_SERVICE_URL || "http://localhost:3001"
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || "http://localhost:3002";
 
 router.get("/health", (_req, res) => {
+  logger.info("Health check requested");
+
   res.json({
     service: "order-service",
     status: "UP"
@@ -15,6 +17,8 @@ router.get("/health", (_req, res) => {
 });
 
 router.get("/order", (_req, res) => {
+  logger.info("Retrieving all orders");
+
   res.json(getAllOrders());
 });
 

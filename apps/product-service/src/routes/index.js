@@ -5,6 +5,8 @@ import { getAllProducts, getProductById } from "../services/productService.js";
 const router = express.Router();
 
 router.get("/health", (_req, res) => {
+  logger.info("Health check requested");
+
   res.json({
     service: "product-service",
     status: "UP"
@@ -12,10 +14,14 @@ router.get("/health", (_req, res) => {
 });
 
 router.get("/product", (_req, res) => {
+  logger.info("Retrieving all products");
+
   res.json(getAllProducts());
 });
 
 router.get("/product/:id", (req, res) => {
+  logger.info("Retrieving product by ID");
+
   const id = Number(req.params.id);
   const product = getProductById(id);
 
