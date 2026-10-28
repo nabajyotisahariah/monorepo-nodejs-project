@@ -4,29 +4,18 @@ You can keep `monorepo-nodejs-project` and `search-service` as separate Git repo
 
 ## 1. Target Kubernetes architecture
 
-External Client
+            External Client
+                  |
+            Kubernetes Ingress / NGINX Ingress Controller
+            Host: your e-commerce domain
+                  |
+          Namespace: ecommerce
 
-Kubernetes Ingress / NGINX Ingress Controller
+User Service                    Product Service
+Deployment + Service            Deployment + Service       
 
-Host: your e-commerce domain
-
-Namespace: ecommerce
-
-User Service
-
-Deployment + Service
-
-Product Service
-
-Deployment + Service
-
-Order Service
-
-Deployment + Service
-
-Search Service
-
-Separate repository
+Order Service                   Search Service
+Deployment + Service            Separate repository
 
 The main changes are:
 
