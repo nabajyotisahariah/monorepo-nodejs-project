@@ -78,7 +78,6 @@ services:
       ORDER_SERVICE_URL: http://order-service:80
       USER_SERVICE_URL: http://user-service:80
       PRODUCT_SERVICE_URL: http://product-service:80
-
     resources:
       requests:
         cpu: 100m
@@ -111,6 +110,8 @@ ingress:
     - path: /api/orders
       service: order-service
 
+    - path: /api/search
+      service: search-service
 
 probes:
   readiness:
