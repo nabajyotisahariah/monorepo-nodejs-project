@@ -43,7 +43,7 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-    restart: unless-stopped
+    #restart: unless-stopped
 
   user-service:
     build:
@@ -57,7 +57,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    restart: unless-stopped
+    #restart: unless-stopped
 
   product-service:
     build:
@@ -71,7 +71,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    restart: unless-stopped
+    #restart: unless-stopped
 
   order-service:
     build:
@@ -90,7 +90,7 @@ services:
       timeout: 3s
       retries: 5
       start_period: 15s
-    restart: unless-stopped
+    #restart: unless-stopped
 
 networks:
   default:

@@ -178,7 +178,8 @@ lint and install it. For example, with GCE Ingress:
 
 ```sh
 helm lint ./helm/ecommerce1.1-gce/
-helm install ecommerce ./helm/ecommerce1.1-gce/
+helm install ecommerce1.1 ./helm/ecommerce1.1-gce/
+helm upgrade --install ecommerce1.1 ./helm/ecommerce1.1-gce/
 ```
 
 Remove the release with:

@@ -4,9 +4,9 @@
 # product : asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0
 # user    : asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0
 
-# helm lint ./helm/ecommerce1.1-gce/
+# helm lint ./helm/ecommerce2.1-gce-search/
 # $ helm list
-# $ helm install microservices1.1 ./helm/ecommerce1.1-gce/
+# $ helm install microservices1.1 ./helm/ecommerce2.1-gce-search/
 # $ helm uninstall microservices1.1
 
 global:
@@ -98,7 +98,7 @@ ingress:
 
   # Optional name of a pre-reserved global GCE IP address.
   # Leave empty to let GCE assign an ephemeral public IP.
-  staticIpName: ""
+  staticIpName: "136.68.148.129"
 
   paths:
     - path: /api/users
