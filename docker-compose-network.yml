@@ -1,0 +1,95 @@
+# This docker-compose file sets for the third party service like "search-service", 
+# and also sets up a shared network for the services to communicate with each other.
+
+# Recreate containers with the updated configuration
+# docker compose -f docker-compose-network.yml up --build
+
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    environment:
+      USER_SERVICE_URL: http://user-service:3000
+      PRODUCT_SERVICE_URL: http://product-service:3000
+      ORDER_SERVICE_URL: http://order-service:3000
+      SEARCH_SERVICE_URL: http://search-service:3000
+      NGINX_ENVSUBST_FILTER: "^(USER_SERVICE_URL|PRODUCT_SERVICE_URL|ORDER_SERVICE_URL|SEARCH_SERVICE_URL)$"
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    
+    networks:
+      - default
+      - shared
+
+    #restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: .
+      dockerfile: apps/user-service/Dockerfile
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  product-service:
+    build:
+      context: .
+      dockerfile: apps/product-service/Dockerfile
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: .
+      dockerfile: apps/order-service/Dockerfile
+    expose:
+      - "3000"
+    environment:
+      # Use Secret Manager or Vault to manage secrets in production instead of hardcoding
+      # them in the docker-compose file.
+      USER_SERVICE_URL: http://user-service:3000
+      PRODUCT_SERVICE_URL: http://product-service:3000
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge
+
+  shared:
+    name: monorepo-network
+    external: true
