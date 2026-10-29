@@ -1,8 +1,14 @@
 # This docker-compose file sets for the third party service like "search-service", 
 # and also sets up a shared network for the services to communicate with each other.
 
-# Recreate containers with the updated configuration
+# 1. Create containers with the updated configuration
 # docker compose -f docker-compose-network.yml up --build
+
+## 2. Create the shared Docker network
+# Run this once on your Docker host:
+# docker network create monorepo-network
+# Verify it:
+# docker network inspect monorepo-network
 
 services:
   nginx:
@@ -16,7 +22,7 @@ services:
       SEARCH_SERVICE_URL: http://search-service:3000
       NGINX_ENVSUBST_FILTER: "^(USER_SERVICE_URL|PRODUCT_SERVICE_URL|ORDER_SERVICE_URL|SEARCH_SERVICE_URL)$"
     volumes:
-      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/nginx-network.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
       user-service:
         condition: service_healthy
