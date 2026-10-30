@@ -1,0 +1,141 @@
+If your Kubernetes Ingress public IP is not getting assigned, especially on your AWS EC2 or GKE deployment, the issue is usually related to the Ingress Controller, LoadBalancer service, cloud permissions, or controller configuration.
+
+Let's troubleshoot it step by step.
+
+## 1. Check Ingress status
+
+Run:
+
+```
+kubectl get ingress -A
+
+kubectl describe ingress microservices-ingress
+
+Name:             microservices-ingress
+Labels:           app.kubernetes.io/managed-by=Helm
+Rules:
+  Host        Path  Backends
+  ----        ----  --------
+  *           
+              /api/users      user-service:80 (10.106.129.4:3000,10.106.129.2:3000)
+              /api/products   product-service:80 (10.106.128.49:3000,10.106.129.5:3000)
+              /api/orders     order-service:80 (10.106.128.50:3000,10.106.129.6:3000)
+              /api/search     search-service:80 (10.106.128.45:3000,10.106.128.46:3000)
+Annotations:  kubernetes.io/ingress.class: gce
+              kubernetes.io/ingress.global-static-ip-name: 136.68.148.129
+              meta.helm.sh/release-name: ecommerce1.1
+              meta.helm.sh/release-namespace: default
+1bdmoerm-default-microservices-ingress-dujbksdf does not exist: the given static IP name 136.68.148.129 doesn't translate to an existing static IP.
+
+```
+
+Check the `ADDRESS` field.
+
+- Empty address: Load balancer provisioning or controller issue.
+- Address assigned but inaccessible: routing, firewall, or backend issue.
+- `<pending>`: Load balancer provisioning is not complete.
+
+## 2. Check Ingress Controller
+
+If you are using NGINX Ingress:
+
+```
+kubectl get pods -n ingress-nginx
+kubectl get svc -n ingress-nginx
+```
+
+Expected service:
+
+```
+NAME                       TYPE           EXTERNAL-IP
+ingress-nginx-controller   LoadBalancer   <public-ip>
+```
+
+If the external IP is pending, inspect:
+
+```
+kubectl describe svc ingress-nginx-controller -n ingress-nginx
+```
+
+Check the Events section for errors.
+
+## 3. Important: Check whether NGINX is actually installed
+
+Run:
+
+```
+kubectl get ingressclass
+kubectl get pods -A | grep -i ingress
+kubectl get svc -A | grep -i ingress
+```
+
+If you see no NGINX controller pods, creating an Ingress resource alone will not assign an IP.
+
+## 4. If you are deploying on GKE
+
+You have two choices:
+
+Option A: GKE native Ingress
+
+Use:
+
+```
+spec:
+  ingressClassName: gce
+```
+
+GKE provisions a Google Cloud HTTP(S) Load Balancer.
+
+Option B: NGINX Ingress Controller
+
+Install the NGINX controller:
+
+```
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+
+helm repo update
+
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace \
+  --set controller.service.type=LoadBalancer
+```
+
+Then check:
+
+```
+kubectl get svc -n ingress-nginx -w
+```
+
+Wait for `EXTERNAL-IP` to appear.
+
+Your application Ingress should use:
+
+```
+spec:
+  ingressClassName: nginx
+```
+
+Important: Don't mix GKE's native `gce` Ingress configuration with NGINX-specific annotations such as `nginx.ingress.kubernetes.io/rewrite-target`.
+
+## 5. Share these command outputs
+
+Since your previous monorepo deployment was using GKE and NGINX routing, please run these four commands:
+
+```
+kubectl get ingress -A
+
+kubectl get ingressclass
+
+kubectl get pods -A | grep -i ingress
+
+kubectl get svc -A | grep -i ingress
+```
+
+Also:
+
+```
+kubectl describe ingress microservices-ingress
+```
+
+I can then pinpoint why the public IP isn't being assigned and give you the exact fix without unnecessarily reinstalling your existing Kubernetes setup.

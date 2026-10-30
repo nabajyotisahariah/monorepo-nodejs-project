@@ -98,7 +98,7 @@ ingress:
 
   # Optional name of a pre-reserved global GCE IP address.
   # Leave empty to let GCE assign an ephemeral public IP.
-  staticIpName: "136.68.148.129"
+  staticIpName: ""  #"136.68.148.129"
 
   paths:
     - path: /api/users
