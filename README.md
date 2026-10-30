@@ -220,7 +220,9 @@ gcloud compute addresses create ecommerce-ingress-ip --global
 gcloud compute addresses describe ecommerce-ingress-ip --global --format="get(address)"
 # Set ingress.staticIpName to ecommerce-ingress-ip in values.yaml
 helm upgrade --install ecommerce ./helm/ecommerce1.1-gce/
+#Evaluate the ingress Service
 kubectl get ingress microservices-ingress
+
 ```
 
 The `gcloud` command prints the reserved public IP; the ingress `ADDRESS` is

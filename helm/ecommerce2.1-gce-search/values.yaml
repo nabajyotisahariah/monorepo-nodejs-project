@@ -7,7 +7,11 @@
 # helm lint ./helm/ecommerce2.1-gce-search/
 # $ helm list
 # $ helm install ecommerce1.1 ./helm/ecommerce2.1-gce-search
+# $ helm upgrade --install ecommerce1.1 ./helm/ecommerce2.1-gce-search
 # $ helm uninstall ecommerce1.1
+
+# Ingress Load Balancing IP Check
+# $ kubectl describe ingress microservices-ingress [microservices-ingress defined ingress.yaml]
 
 global:
   image:
