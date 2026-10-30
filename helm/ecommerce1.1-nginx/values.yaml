@@ -4,9 +4,9 @@
 # product : asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/product-service:1.0
 # user    : asia-south2-docker.pkg.dev/weather-project-prod-511603/ecommerce-nodejs-app-repo/user-service:1.0
 
-# helm lint ./helm/ecommerce1.1/
+# helm lint ./helm/ecommerce1.1-nginx/
 # $ helm list
-# $ helm install microservices1.1 ./helm/ecommerce1.1/
+# $ helm install microservices1.1 ./helm/ecommerce1.1-nginx/
 # $ helm uninstall microservices1.1
 
 global:
