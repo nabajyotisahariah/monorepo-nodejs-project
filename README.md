@@ -178,7 +178,8 @@ lint and install it. For example, with GCE Ingress:
 
 ```sh
 helm lint ./helm/ecommerce1.1-gce/
-helm install ecommerce ./helm/ecommerce1.1-gce/
+helm install ecommerce1.1 ./helm/ecommerce1.1-gce/
+helm upgrade --install ecommerce1.1 ./helm/ecommerce1.1-gce/
 ```
 
 Remove the release with:
@@ -219,7 +220,9 @@ gcloud compute addresses create ecommerce-ingress-ip --global
 gcloud compute addresses describe ecommerce-ingress-ip --global --format="get(address)"
 # Set ingress.staticIpName to ecommerce-ingress-ip in values.yaml
 helm upgrade --install ecommerce ./helm/ecommerce1.1-gce/
+#Evaluate the ingress Service
 kubectl get ingress microservices-ingress
+
 ```
 
 The `gcloud` command prints the reserved public IP; the ingress `ADDRESS` is

@@ -1,0 +1,74 @@
+Yes, your Ingress IP can change or become unavailable if you configure it incorrectly during the next Helm install or upgrade. However, you can preserve `136.68.148.129` by reserving it as a static external IP address in Google Cloud and referencing its reserved resource name in your Helm configuration.
+
+Your current setup has two Ingress resources:
+
+| Ingress                        | Current external IP |
+| ------------------------------ | ------------------- |
+| `microservices-ingress`        | `136.68.148.129`    |
+| `microservices-ingress-search` | `136.68.181.136`    |
+
+## 1. Important: `staticIpName` expects a name, not an IP address
+
+Your current configuration is incorrect for a GCE Ingress:
+
+```
+ingress:
+  enabled: true
+  staticIpName: "136.68.148.129"
+```
+
+The `staticIpName` field should contain the name of a reserved Google Cloud global IP resource, not its numeric IP address.
+
+## 2. Reserve the existing IP address
+
+First, check whether `136.68.148.129` is already reserved:
+
+```
+gcloud compute addresses list \
+  --global \
+  --filter="address=136.68.148.129"
+```
+
+If it returns an existing address resource, note its `NAME`.
+
+If it returns nothing, the address is likely ephemeral. You can reserve that exact address only if Google Cloud allows it to be promoted or otherwise reserved in its current state; do not delete the Ingress to try to reserve it, because the address could be lost. Check the address details in Google Cloud first. 
+
+
+## 3. Update your Helm configuration
+
+Suppose the reserved address resource is named `microservices-ingress-ip`. Your `values.yaml` should be:
+
+```
+ingress:
+  enabled: true
+  staticIpName: "microservices-ingress-ip"
+```
+
+Your Helm chart's Ingress template must use that name in the GCE annotation:
+
+```
+metadata:
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: {{ .Values.ingress.staticIpName | quote }}
+```
+
+The chart must render this annotation for the Ingress to use the reserved IP
+
+## 4. Install or upgrade Helm
+
+```
+helm upgrade --install ecommerce1.1 \
+  ./helm/ecommerce1.1 \
+  -f ./helm/ecommerce1.1/values.yaml
+```
+
+Replace the release name and chart path if yours differ.
+
+Then verify:
+
+```
+kubectl get ingress
+kubectl describe ingress microservices-ingress
+```
+
+Important: If you keep both Ingress resources, they cannot both independently use the same IP for separate Google Cloud load balancers. If you want to retain both IPs, reserve each one separately. If you want a single public IP for multiple services, configure one Ingress with routing rules for all of them.

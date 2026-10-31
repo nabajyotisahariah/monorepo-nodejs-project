@@ -1,0 +1,355 @@
+For your e-commerce project, the Kubernetes changes are similar in concept to the Docker Compose approach, but instead of a shared Docker network, Kubernetes uses Services and cluster DNS to connect independently deployed applications.
+
+You can keep `monorepo-nodejs-project` and `search-service` as separate Git repositories and deploy them independently to the same Kubernetes cluster.
+
+## 1. Target Kubernetes architecture
+
+            External Client
+                  |
+            Kubernetes Ingress / NGINX Ingress Controller
+            Host: your e-commerce domain
+                  |
+          Namespace: ecommerce
+
+User Service                    Product Service
+Deployment + Service            Deployment + Service       
+
+Order Service                   Search Service
+Deployment + Service            Separate repository
+
+The main changes are:
+
+- Replace Docker Compose services with Kubernetes `Deployment` and `Service` resources.
+- Add a separate Deployment and Service for the search application.
+- Configure Ingress to route `/api/search` to the search Service.
+- Use Kubernetes DNS for communication between services.
+- Keep independent deployment manifests and CI/CD pipelines for each repository.
+
+## 2. Add Kubernetes manifests to the search repository
+
+In `search-service`, create this structure:
+
+```
+search-service/
+├── Dockerfile
+├── docker-compose.yml
+├── src/
+└── k8s/
+    ├── deployment.yaml
+    ├── service.yaml
+    └── ingress.yaml
+```
+
+### A. `k8s/deployment.yaml`
+
+This manages the search application Pods.
+
+```
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-service
+  labels:
+    app: search-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: search-service
+  template:
+    metadata:
+      labels:
+        app: search-service
+    spec:
+      containers:
+        - name: search-service
+          image: YOUR_REGION-docker.pkg.dev/YOUR_PROJECT/YOUR_REPOSITORY/search-service:1.0.0
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+```
+
+Replace the image with the actual image in your container registry.
+
+The example assumes the service listens on port `3000` and exposes a working `/health` endpoint. If this is a Spring Boot application using port `8080` and Spring Actuator, update the port and probe paths accordingly.
+
+### B. `k8s/service.yaml`
+
+This provides a stable internal DNS name for the search application.
+
+```
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: search-service
+spec:
+  type: ClusterIP
+  selector:
+    app: search-service
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP
+
+```
+
+The search service is now accessible within the same namespace at:
+
+```
+http://search-service:3000
+```
+
+If the search service runs in another namespace, use its fully qualified service DNS name, for example:
+
+```
+http://search-service.search.svc.cluster.local:3000
+```
+
+Kubernetes Services provide stable endpoints even as individual Pods are replaced.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://kubernetes.io\&sz=32)
+
+Kubernetes+1
+
+
+
+## 3. Route `/api/search` through Kubernetes Ingress
+
+You have two common options, depending on the Ingress controller and your search application's URL mappings.
+
+### Option A: The application accepts `/api/search/...`
+
+If the application already exposes endpoints such as `/api/search/health`, add the following path to your existing Ingress rules:
+
+```
+- path: /api/search
+  pathType: Prefix
+  backend:
+    service:
+      name: search-service
+      port:
+        number: 3000
+```
+
+This is the simplest option. Kubernetes Ingress routes requests but does not automatically strip the path prefix.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://kubernetes.io\&sz=32)
+
+Kubernetes+1
+
+
+
+### Option B: The application expects `/health`, `/products`, etc.
+
+If you need `/api/search/health` to become `/health`, the configuration depends on your Ingress controller.
+
+For an NGINX Ingress Controller, one approach is to create a separate `k8s/ingress.yaml` in the search repository:
+
+```
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: search-service
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/search(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: search-service
+                port:
+                  number: 3000
+
+```
+
+This example assumes that the Ingress controller supports the specified NGINX annotations and that the `search-service` Service is in the same namespace as this Ingress.
+
+Requests are rewritten as follows:
+
+| External request       | Search application path |
+| ---------------------- | ----------------------- |
+| `/api/search/health`   | `/health`               |
+| `/api/search/products` | `/products`             |
+| `/api/search`          | `/`                     |
+
+Important: Do not blindly apply this rewrite annotation to an existing shared NGINX Ingress containing other services. The rewrite settings may affect other paths handled by that Ingress. Keep search on a separate Ingress resource, or use a suitable Gateway/API gateway configuration.
+
+Also, `ingressClassName: nginx` must match your installed controller. If you are using GKE's native GCE Ingress instead, this NGINX-specific configuration will not work. Kubernetes documents that path handling and controller-specific annotations depend on the selected implementation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://v1-36.docs.kubernetes.io\&sz=32)
+
+Kubernetes+1
+
+
+
+## 4. Build and push the search image to Google Artifact Registry
+
+Since you are deploying on GKE, build the image from the search repository, then push it to your Artifact Registry.
+
+Example using placeholders:
+
+```
+# Configure your GCP project
+gcloud config set project YOUR_PROJECT_ID
+
+# Authenticate Docker to Artifact Registry
+gcloud auth configure-docker YOUR_REGION-docker.pkg.dev
+
+# Build from the search-service repository
+cd ~/projects/search-service
+
+docker build \
+  -t YOUR_REGION-docker.pkg.dev/YOUR_PROJECT/YOUR_REPOSITORY/search-service:1.0.0 \
+  -f Dockerfile .
+
+# Push the image
+docker push \
+  YOUR_REGION-docker.pkg.dev/YOUR_PROJECT/YOUR_REPOSITORY/search-service:1.0.0
+```
+
+Replace the placeholders with your actual project, region and Artifact Registry repository. The repository must already exist.
+
+## 5. Deploy the search service to GKE
+
+I recommend initially deploying all four services into the same namespace, such as `ecommerce`. You can still keep separate Git repositories.
+
+```
+# Connect kubectl to your GKE cluster
+gcloud container clusters get-credentials YOUR_CLUSTER \
+  --region YOUR_REGION \
+  --project YOUR_PROJECT_ID
+
+# Create the namespace if needed
+kubectl create namespace ecommerce \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Deploy the search workload
+kubectl apply -f k8s/deployment.yaml -n ecommerce
+kubectl apply -f k8s/service.yaml -n ecommerce
+
+# Check deployment status
+kubectl rollout status deployment/search-service -n ecommerce
+kubectl get pods,svc -n ecommerce
+```
+
+If using the separate NGINX Ingress example above:
+
+```
+kubectl apply -f k8s/ingress.yaml -n ecommerce
+kubectl get ingress -n ecommerce
+```
+
+This assumes the `k8s` directory is in your current `search-service` repository and the Ingress controller is already installed.
+
+## 6. Update the existing e-commerce Ingress
+
+If your monorepo already has a Kubernetes Ingress routing user, product and order requests, you have two choices:
+
+- Recommended for simplicity: Add the `/api/search` path to the existing Ingress manifest in the monorepo and deploy the updated manifest.
+- Recommended for independent releases: Maintain a separate search Ingress manifest in the search repository, using the same host and a compatible Ingress controller. Verify how your controller handles multiple Ingress resources sharing a host.
+
+For a standard Ingress, the search route should point to the Kubernetes Service name `search-service` on port `3000`, not to a Pod IP or Docker Compose hostname.
+
+## 7. Verify the Kubernetes deployment
+
+```
+# Inspect the Deployment and Pods
+kubectl get deployment,pods,svc -n ecommerce
+
+# Check search-service logs
+kubectl logs deployment/search-service -n ecommerce
+
+# Test the Service internally
+kubectl run search-test \
+  --rm -it \
+  --restart=Never \
+  --image=curlimages/curl \
+  -n ecommerce \
+  -- curl -i http://search-service:3000/health
+
+# Inspect the Ingress
+kubectl describe ingress -n ecommerce
+```
+
+Then test the external endpoint:
+
+```
+curl -i http://YOUR_INGRESS_IP/api/search/health
+```
+
+Use your actual Ingress IP or domain, and replace `/health` if your application uses a different endpoint.
+
+## 8. Independent deployment workflow
+
+Search repository changes
+
+Commit code, build a new versioned image, push it to Artifact Registry, and deploy the search manifests.
+
+Update the search Deployment
+
+Update the image tag in the search repository's Deployment manifest and apply it. Kubernetes performs a rolling update according to the Deployment strategy.
+
+Verify rollout
+
+Check rollout status and application health. The monorepo's user, product and order Deployments need not be rebuilt or restarted.
+
+Example update command:
+
+```
+kubectl set image deployment/search-service \
+  search-service=YOUR_REGION-docker.pkg.dev/YOUR_PROJECT/YOUR_REPOSITORY/search-service:1.0.1 \
+  -n ecommerce
+
+kubectl rollout status deployment/search-service -n ecommerce
+```
+
+This is useful for a quick image update. For reproducible releases, update the image tag in the repository's version-controlled manifest as well.
+
+## 9. What changes in each repository?
+
+| Component             | Monorepo repository                        | Search repository                           |
+| --------------------- | ------------------------------------------ | ------------------------------------------- |
+| Application code      | No changes required for search integration | Maintain search implementation              |
+| Dockerfile            | Existing service Dockerfiles               | Build search image                          |
+| Kubernetes Deployment | Existing user/product/order Deployments    | Add `search-service` Deployment             |
+| Kubernetes Service    | Existing Services                          | Add `search-service` ClusterIP              |
+| Ingress               | Add route if using one shared Ingress      | Optional separate Ingress                   |
+| CI/CD                 | Existing pipeline                          | Independent build, push and deploy pipeline |
+
+My recommendation: For your e-commerce application on GKE, keep the search service in a separate repository, use a dedicated Kubernetes Deployment and ClusterIP Service, and expose it through the existing API entry point. This provides independent releases without introducing unnecessary networking infrastructure.
+
+One final consideration: Kubernetes Ingress is stable but its API is frozen, and the Kubernetes project recommends considering Gateway API for new designs. You do not need to migrate an existing working Ingress just to add search routing.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://kubernetes.io\&sz=32)
+
+Kubernetes

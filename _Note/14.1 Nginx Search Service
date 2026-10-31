@@ -1,0 +1,339 @@
+# Deploy separate repositories using Docker Compose and a shared NGINX
+
+For your architecture, I recommend keeping `monorepo-nodejs-project` and `search-service` as two independently deployable repositories, with NGINX acting as the single API entry point.
+
+This approach lets you deploy or update the search service without rebuilding your user, product, or order services.
+
+## 1. Target architecture
+
+      Client / Consumer
+    [http://your-server/api/]
+
+          |
+    NGINX — Main repository
+    Port 80 · Path-based routing
+          |----------------------------------|
+Repository 1                          Repository 2
+monorepo-nodejs-project               search-service
+    User service                          Independent Docker build
+    Product service                       Independent release
+    Order service                         Independent restart
+
+Shared Docker network: `monorepo-network`
+Private communication between NGINX and all services
+
+For example:
+
+- `GET /api/users/health` → user service
+- `GET /api/products/health` → product service
+- `GET /api/orders/health` → order service
+- `GET /api/search/health` → search service
+
+The search service can be built and restarted separately without recreating the existing services.
+
+## 2. Recommended directory structure
+
+Keep both repositories independent on your server.
+
+```
+~/projects/
+├── monorepo-nodejs-project/
+│   ├── docker-compose.yml
+│   ├── nginx/
+│   │   └── nginx.conf.template
+│   └── apps/
+│       ├── user-service/
+│       ├── product-service/
+│       └── order-service/
+│
+└── search-service/
+    ├── docker-compose.yml
+    ├── Dockerfile
+    └── src/
+```
+
+The shared Docker network is managed by Docker, not by either Git repository. You do not need a third repository to manage it for this setup.
+
+## 3. Create the shared Docker network
+
+Run this once on your Docker host:
+
+```
+docker network create monorepo-network
+```
+
+Verify it:
+```
+docker network inspect monorepo-network
+```
+
+Both Compose projects will reference this network as `external: true`. Docker Compose will not create or delete the network as part of either project's normal lifecycle
+
+## 4. Configure the main monorepo's `docker-compose.yml`
+
+Keep your existing service build definitions and health checks. Make these changes to the `nginx` service and add the top-level network definition.
+
+```
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+
+    environment:
+      USER_SERVICE_URL: http://user-service:3000
+      PRODUCT_SERVICE_URL: http://product-service:3000
+      ORDER_SERVICE_URL: http://order-service:3000
+      SEARCH_SERVICE_URL: http://search-service:3000
+
+      NGINX_ENVSUBST_FILTER: "^(USER_SERVICE_URL|PRODUCT_SERVICE_URL|ORDER_SERVICE_URL|SEARCH_SERVICE_URL)$"
+
+    volumes:
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+
+    networks:
+      - default
+      - shared
+
+    restart: unless-stopped
+
+  # Keep your existing user-service,
+  # product-service and order-service definitions unchanged.
+
+networks:
+  default:
+    driver: bridge
+
+  shared:
+    name: monorepo-network
+    external: true
+```
+
+Why two networks for NGINX?
+
+- `default` keeps NGINX connected to the existing monorepo services.
+- `shared` connects NGINX to the independently deployed search service.
+
+The other monorepo services can remain on their default network; they do not need to join the shared network just because NGINX does. Docker supports connecting a container to multiple networks.
+
+## 5. Configure the separate `search-service/docker-compose.yml`
+
+Replace your existing Compose configuration with the following pattern, retaining any application-specific environment variables and dependencies you need.
+
+```
+services:
+  search-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    expose:
+      - "3000"
+
+    networks:
+      default:
+      shared:
+        aliases:
+          - search-service
+
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge
+
+  shared:
+    name: monorepo-network
+    external: true
+```
+
+### Important details
+
+1. Remove `ports: "3000:3000"` if NGINX is the only intended entry point. `expose` documents the internal port but does not publish it on the host.
+2. The explicit `search-service` network alias gives NGINX a stable DNS name, regardless of the Compose project name.
+3. The search service remains connected to its own default network as well. You can keep its database on that private network, without attaching the database to the shared network.
+4. Ensure the application actually listens on port `3000` and binds to `0.0.0.0` inside the container. If it is a Spring Boot app listening on `8080`, change the target URLs and port configuration to `8080`.
+
+
+
+## 6. Configure the NGINX search route
+
+In `monorepo-nodejs-project/nginx/nginx.conf.template`, add these routes inside the existing `server` block:
+
+```
+# Search service
+location = /api/search {
+    proxy_pass ${SEARCH_SERVICE_URL}/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location /api/search/ {
+    proxy_pass ${SEARCH_SERVICE_URL}/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+With this configuration, NGINX strips the `/api/search/` prefix before forwarding the request.
+
+| Client request               | Upstream request                            |
+| ---------------------------- | ------------------------------------------- |
+| `/api/search/health`         | `http://search-service:3000/health`         |
+| `/api/search/products?q=dog` | `http://search-service:3000/products?q=dog` |
+
+If your search application's controller mappings already include `/api/search`, use a different `proxy_pass` configuration so the prefix is preserved.
+
+## 7. Initial deployment: Start both repositories
+
+The order matters because the external network must exist before either Compose project starts.
+
+From your server:
+
+```
+# Step 1: Create the shared network (once)
+docker network create monorepo-network
+
+# Step 2: Start the search service
+cd ~/projects/search-service
+docker compose up -d --build
+
+# Step 3: Start the monorepo and NGINX
+cd ~/projects/monorepo-nodejs-project
+docker compose config
+docker compose up -d --build
+```
+
+If the network already exists, Docker returns an error when you try to create it again. In that case, skip the creation command.
+
+Check the services:
+
+```
+docker ps
+docker network inspect monorepo-network
+```
+
+## 8. Deploy the search service independently
+
+This is the main benefit of keeping separate repositories.
+
+Suppose you have updated the search implementation and pushed changes to its Git repository. You can deploy only the search service:
+
+```
+cd ~/projects/search-service
+
+git pull
+docker compose up -d --build
+```
+
+This rebuilds and recreates the search service if its configuration or image has changed. It does not require rebuilding the monorepo or restarting NGINX.
+
+Test it through the public entry point:
+
+```
+curl http://localhost/api/search/health
+```
+
+The existing NGINX container continues routing to the service through Docker's DNS name. Docker documents that service names remain stable when containers are recreated, although existing connections may need to reconnect.
+
+
+## 9. Deploy monorepo changes independently
+
+When you change the user, product, or order services, deploy those changes from the monorepo:
+
+```
+cd ~/projects/monorepo-nodejs-project
+
+git pull
+docker compose up -d --build
+```
+
+This command evaluates the whole Compose project, but Compose recreates services when their configuration or image changes. Unchanged services are generally left running.
+
+If you only changed NGINX routing:
+
+```
+docker compose up -d nginx
+```
+
+This recreates NGINX using the updated configuration and template. Check that it starts successfully:
+
+```
+docker compose logs --tail=100 nginx
+docker compose exec nginx nginx -t
+```
+
+Note that `nginx -t` validates the configuration currently loaded by NGINX; `docker compose up -d nginx` is what applies changes to the mounted template and regenerates the configuration.
+
+## 10. Test and troubleshoot the shared network
+
+Run the following from the monorepo directory.
+
+### Connectivity checklist
+
+Check network membership
+
+```
+docker network inspect monorepo-network
+```
+
+Confirm both the NGINX container and search-service container appear in the network's container list.
+
+Test search-service DNS
+
+```
+docker compose exec nginx \
+  wget -S -O- http://search-service:3000/health
+```
+
+This checks DNS resolution and HTTP connectivity from NGINX to the search service.
+
+Test through NGINX
+
+```
+curl -i http://localhost/api/search/health
+```
+
+A successful response confirms that the request reached the endpoint. If your application has no `/health` route, substitute a real endpoint.
+
+Inspect search logs
+
+```
+cd ~/projects/search-service
+docker compose logs --tail=100 search-service
+```
+
+Common problems:
+
+| Error                        | Likely cause                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| `Network not found`          | Create `monorepo-network` first.                                                                |
+| `host not found in upstream` | Verify the search service is running and attached to the shared network with the correct alias. |
+| `Connection refused`         | Verify the container port, application startup and bind address.                                |
+| `404 Not Found`              | Check whether NGINX strips the prefix but the application expects it.                           |
+| `502 Bad Gateway`            | Inspect upstream connectivity and search-service logs.                                          |
+
+## 11. Production recommendations
+
+- Single public entry point: Publish NGINX's port 80/443, not the search service's port 3000.
+- Separate release cycles: Tag and version search-service images independently when moving beyond local builds.
+- Health checks: Add an application-specific health check to the search service. A running container is not necessarily a ready application.
+- Environment-specific configuration: Keep credentials and secrets out of committed Compose files; use an appropriate secret manager in production.
+- Network isolation: Attach only services that need cross-project communication to the shared network. Keep databases and internal dependencies on their private networks.
+- Persistent data: If search uses Elasticsearch or another stateful dependency, manage that dependency's storage and lifecycle separately.
+
+One important distinction: a shared Docker bridge network works for containers on the same Docker host. If you later deploy the monorepo and search service on separate VMs, this exact network setup will not connect them across machines; you will need a reachable service endpoint, load balancer, VPN, or an appropriate multi-host networking architecture.
+
+For your current single-host deployment, this approach gives you independent Git repositories, independent Docker builds and releases, and a single NGINX endpoint without merging the codebases.
