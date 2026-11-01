@@ -20,6 +20,9 @@ services:
       USER_SERVICE_URL: http://user-service:3000
       PRODUCT_SERVICE_URL: http://product-service:3000
       ORDER_SERVICE_URL: http://order-service:3000
+      # Order Service running on port 8000 for local development. Commented out the depends_on
+      # section below to avoid waiting for the order-service to be healthy before starting NGINX.
+      #ORDER_SERVICE_URL: http://host.docker.internal:8000
       NGINX_ENVSUBST_FILTER: "^(USER_SERVICE_URL|PRODUCT_SERVICE_URL|ORDER_SERVICE_URL)$"
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
