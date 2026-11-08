@@ -27,6 +27,10 @@ The services use shared types from `@packages/model` and logging from
 `@packages/logger`. The gateway and services compile to JavaScript in their
 local `dist/` folders and start from the compiled output.
 
+## Architecture
+![Monorepo Kubernetes Helm Architecture](<./_Note/Monorepo Kubernetes Helm Architecture.png>)
+
+
 ## Prerequisites
 
 - Node.js 22 or later
